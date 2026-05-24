@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Manrope', system-ui, sans-serif;
+  --font-serif: 'Fraunces', serif;
+}
+
 /* Fonts loaded via <link> in index.html (Manrope + Fraunces from Google Fonts) */
 
 :root {
@@ -58,7 +63,149 @@
   }
 }
 
-/* Games are fullscreen — no document scroll, no text selection */
+/* ── UNO animations ── */
+@keyframes ripple-expand {
+  from { transform: scale(0); opacity: 1; }
+  to   { transform: scale(70); opacity: 1; }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes bounce-in {
+  0%   { opacity: 0; transform: scale(0.55) translateY(18px); }
+  62%  { opacity: 1; transform: scale(1.1) translateY(-5px); }
+  100% { transform: scale(1) translateY(0); }
+}
+@keyframes float-shape {
+  0%, 100% { transform: translateY(0px)    rotate(var(--rot)); }
+  50%       { transform: translateY(-16px) rotate(calc(var(--rot) + 4deg)); }
+}
+@keyframes blob-drift {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  33%       { transform: translate(24px, -18px) scale(1.08); }
+  66%       { transform: translate(-18px, 22px) scale(0.94); }
+}
+@keyframes menu-card-in {
+  from { opacity: 0; transform: translateY(32px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes penalty-pop {
+  0%   { transform: scale(0.7); }
+  35%  { transform: scale(1.35); }
+  60%  { transform: scale(1.18); }
+  100% { transform: scale(1.2); }
+}
+@keyframes menu-card-in-locked {
+  from { opacity: 0; transform: translateY(32px) scale(0.9); }
+  to   { opacity: 0.5; transform: translateY(0) scale(1); }
+}
+@keyframes logo-glaze {
+  from { left: -80px; }
+  to   { left: 220px; }
+}
+
+/* 3-phase draw animation: Rise → Fly → Drop
+   Requires --tx and --ty CSS vars set on the element for the target offset */
+@keyframes card-draw-arc {
+  0% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+    z-index: 200;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  18% {
+    /* Rise: pop up — barely started rotating */
+    transform: translate(
+      calc(-50% + var(--tx) * 0.08),
+      calc(-50% + var(--ty) * 0.06 - 64px)
+    ) scale(1.5) rotate(calc(var(--trot, 0deg) * 0.1));
+    filter: drop-shadow(0 20px 28px rgba(0,0,0,0.55));
+    z-index: 200;
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  74% {
+    /* Fly: most of the rotation done while airborne */
+    transform: translate(
+      calc(-50% + var(--tx) * 0.82),
+      calc(-50% + var(--ty) * 0.82 - 18px)
+    ) scale(1.35) rotate(calc(var(--trot, 0deg) * 0.8));
+    filter: drop-shadow(0 10px 16px rgba(0,0,0,0.4));
+    z-index: 200;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  75% {
+    /* Step z-index at the exact moment the drop begins */
+    z-index: var(--tzIndex, 200);
+  }
+  92% {
+    /* Drop: fully rotated, tucked behind the right neighbours */
+    transform: translate(
+      calc(-50% + var(--tx)),
+      calc(-50% + var(--ty))
+    ) scale(0.95) rotate(var(--trot, 0deg));
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    z-index: var(--tzIndex, 200);
+    opacity: 1;
+  }
+  100% {
+    /* Firmly landed, exact slot angle */
+    transform: translate(
+      calc(-50% + var(--tx)),
+      calc(-50% + var(--ty))
+    ) scale(1) rotate(var(--trot, 0deg));
+    filter: none;
+    z-index: var(--tzIndex, 200);
+    opacity: 1;
+  }
+}
+/* Flip from face-down to face-up during the arc — runs on the inner preserve-3d div */
+@keyframes card-flip {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+/* Keeps a card invisible until the flying card lands, then snaps visible */
+@keyframes snap-visible {
+  0%, 99.9% { opacity: 0; }
+  100%       { opacity: 1; }
+}
+/* Plays a card: flies from hand/CPU slot to discard pile; mirrors the 5-step draw-arc physics */
+@keyframes card-play-arc {
+  0% {
+    transform: translate(calc(-50% + var(--startX)), calc(-50% + var(--startY))) scale(var(--startScale, 1)) rotate(var(--startRot));
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  18% {
+    transform: translate(
+      calc(-50% + var(--startX) * 0.92 + var(--endX) * 0.08),
+      calc(-50% + var(--startY) * 0.94 + var(--endY) * 0.06 - 64px)
+    ) scale(calc(var(--startScale, 1) * 0.5 + 0.75)) rotate(calc(var(--startRot) * 0.9));
+    filter: drop-shadow(0 20px 28px rgba(0,0,0,0.55));
+    animation-timing-function: linear;
+  }
+  74% {
+    transform: translate(
+      calc(-50% + var(--startX) * 0.18 + var(--endX) * 0.82),
+      calc(-50% + var(--startY) * 0.18 + var(--endY) * 0.82 - 18px)
+    ) scale(1.15) rotate(calc(var(--startRot) * 0.2));
+    filter: drop-shadow(0 10px 16px rgba(0,0,0,0.4));
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  92% {
+    transform: translate(calc(-50% + var(--endX)), calc(-50% + var(--endY))) scale(0.95) rotate(0deg);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  100% {
+    transform: translate(calc(-50% + var(--endX)), calc(-50% + var(--endY))) scale(1) rotate(0deg);
+    filter: none;
+  }
+}
+
+/* ── Games are fullscreen — no document scroll, no text selection ── */
 html {
   height: 100%;
   overflow: hidden;
