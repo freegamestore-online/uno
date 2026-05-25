@@ -79,10 +79,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       const drawn = hand[hand.length - 1];
       const n = s.players.length;
       const next = ((s.currentPlayer + s.direction) % n + n) % n;
-      const msg = drawn && isPlayable(drawn, topCard(s))
-        ? `Drew ${drawn.color !== 'wild' ? drawn.color + ' ' : ''}${drawn.value} — playable!`
-        : 'Drew a card.';
-      return { ...s, currentPlayer: next, message: msg, pendingCardId: null };
+      return { ...s, currentPlayer: next, pendingCardId: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -162,7 +159,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           const s = drawCards(prev, prev.currentPlayer, 1);
           const n = s.players.length;
           const next = ((s.currentPlayer + s.direction) % n + n) % n;
-          return { ...s, currentPlayer: next, message: `${cpu.name} drew a card.`, pendingCardId: null };
+          return { ...s, currentPlayer: next, pendingCardId: null };
         }
 
         const chosenColor =

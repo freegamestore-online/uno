@@ -38,7 +38,6 @@ export interface GameState {
   direction: 1 | -1;
   phase: GamePhase;
   winner: number | null;
-  message: string;
   pendingAction: {
     type: 'skip' | 'draw2' | 'wild4' | 'reverse' | 'wild';
     target: number;
@@ -126,7 +125,6 @@ export function initGame(opponents: OpponentConfig[]): GameState {
     direction: 1,
     phase: 'playing',
     winner: null,
-    message: '',
     pendingAction: null,
   };
 }
@@ -166,7 +164,7 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
   s.discard = [...s.discard, card];
 
   if (player.hand.length === 0) {
-    return { ...s, phase: 'game-over', winner: playerIndex, message: `${player.name} wins!` };
+    return { ...s, phase: 'game-over', winner: playerIndex };
   }
 
   const n = s.players.length;
@@ -180,7 +178,6 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
       const victim = advance(playerIndex);
       s.pendingAction = { type: 'skip', target: victim, nextPlayer: advance(playerIndex, true) };
       s.currentPlayer = victim;
-      s.message = `${s.players[victim]?.name ?? ''} skipped!`;
       break;
     }
     case 'reverse': {
@@ -188,32 +185,27 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
       const nextPlayer = n === 2 ? playerIndex : advance(playerIndex);
       s.pendingAction = { type: 'reverse', target: playerIndex, nextPlayer, color: card.color };
       s.currentPlayer = playerIndex;
-      s.message = 'Direction reversed!';
       break;
     }
     case 'draw2': {
       const victim = advance(playerIndex);
       s.pendingAction = { type: 'draw2', target: victim, nextPlayer: advance(playerIndex, true) };
       s.currentPlayer = victim;
-      s.message = `${s.players[victim]?.name ?? ''} draws 2!`;
       break;
     }
     case 'wild4': {
       const victim = advance(playerIndex);
       s.pendingAction = { type: 'wild4', target: victim, nextPlayer: advance(playerIndex, true) };
       s.currentPlayer = victim;
-      s.message = `${s.players[victim]?.name ?? ''} draws 4!`;
       break;
     }
     case 'wild': {
       s.pendingAction = { type: 'wild', target: playerIndex, nextPlayer: advance(playerIndex), color: chosenColor };
       s.currentPlayer = playerIndex;
-      s.message = `Color changed to ${chosenColor}`;
       break;
     }
     default:
       s.currentPlayer = advance(playerIndex);
-      s.message = '';
   }
 
   return s;

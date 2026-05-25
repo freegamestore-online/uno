@@ -412,7 +412,11 @@ export function GameBoard({ opponents, onExit }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentPlayer, state.direction, state.players, animatingFrom, desk.w, desk.h]);
 
-  const isMyTurn = state.phase === 'playing' && state.players[state.currentPlayer]?.id === 0 && !isLocked && activeSeat === 0;
+  const isMyTurn = state.phase === 'playing' &&
+                   state.players[state.currentPlayer]?.id === 0 &&
+                   !isLocked &&
+                   activeSeat === 0 &&
+                   !state.pendingAction;
   const top = topCard(state);
   const isTopFlying = hiddenDiscardId === top.id && state.discard.length > 1;
 
@@ -706,12 +710,6 @@ export function GameBoard({ opponents, onExit }: Props) {
           </div>
         </div>
 
-        {/* Message */}
-        {state.message && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-lg text-[13px] font-sans whitespace-nowrap pointer-events-none">
-            {state.message}
-          </div>
-        )}
 
         {/* Player hand — fan layout */}
         {(() => {
@@ -728,21 +726,9 @@ export function GameBoard({ opponents, onExit }: Props) {
 
           return (
             <div
-              className="absolute bottom-0 left-0 right-0 bg-white/4 border-t border-white/7"
+              className="absolute bottom-0 left-0 right-0"
               style={{ height: handH }}
             >
-              {/* hint text */}
-              <p className="absolute top-[6px] left-0 right-0 text-center text-white/55 text-[11px] font-sans m-0 pointer-events-none">
-                {isMyTurn && selected
-                  ? 'Tap again to play, or tap another card'
-                  : isMyTurn
-                    ? hand.some(c => isPlayable(c, top))
-                      ? 'Tap a highlighted card to play'
-                      : 'No playable cards — tap draw pile'
-                    : state.phase === 'playing'
-                      ? `${state.players[state.currentPlayer]?.name ?? ''}'s turn…`
-                      : ''}
-              </p>
 
               {/* fan container — bottom lifts as cards increase to keep arc inside panel */}
               <div
