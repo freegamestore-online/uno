@@ -63,7 +63,8 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     lockBoard();
     setState(prev => {
       if (prev.phase !== 'color-pick' || !prev.pendingCardId) return prev;
-      return { ...playCard(prev, prev.pendingCardId, color), pendingCardId: null };
+      const next = playCard(prev, prev.pendingCardId, color);
+      return { ...next, pendingCardId: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -84,20 +85,47 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
 
+  // 2P Reverse: show REVERSE! on actor at 720ms, clear it at 1400ms, then send turn line to opponent at 1500ms
+  useEffect(() => {
+    if (state.pendingAction?.type === 'reverse' && state.players.length === 2) {
+      const { nextPlayer, color } = state.pendingAction;
+      const t1 = setTimeout(() => {
+        setActionTag({ seat: nextPlayer, text: 'REVERSE!', type: 'reverse', color });
+      }, 720);
+      const t2 = setTimeout(() => {
+        setActionTag(null);
+        setState(prev => {
+          if (!prev.pendingAction) return prev;
+          return { ...prev, currentPlayer: prev.pendingAction.target };
+        });
+      }, 1720);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.pendingAction]);
+
   // Action phase: distinct physical animations for victims and actors
   useEffect(() => {
     if (state.pendingAction && activeSeat === state.pendingAction.target) {
       const { type, target, nextPlayer, color } = state.pendingAction;
-      const isVictimPenalty = type === 'skip' || type === 'draw2' || type === 'wild4';
+      const is2PReverse = type === 'reverse' && state.players.length === 2;
+      const isVictimPenalty = type === 'skip' || type === 'draw2' || type === 'wild4' || is2PReverse;
 
       if (isVictimPenalty) {
-        const text = type === 'skip' ? '🥲 skipped' : type === 'draw2' ? '😢 draw 2 cards' : '😭 draw 4 cards';
+        const isSkipLike = type === 'skip' || is2PReverse;
         const flyTime = type === 'draw2' ? (130 * 1 + 720) : type === 'wild4' ? (130 * 3 + 720) : 0;
 
-        setActionTag({ seat: target, text, type });
+        if (is2PReverse) {
+          setActionTag({ seat: target, text: '🥲 skipped', type: 'skip' });
+        } else if (type === 'skip') {
+          setActionTag({ seat: target, text: '🥲 skipped', type: 'skip' });
+        } else {
+          const text = type === 'draw2' ? '😢 draw 2 cards' : '😭 draw 4 cards';
+          setActionTag({ seat: target, text, type });
+        }
 
         const t1 = setTimeout(() => {
-          if (type !== 'skip') {
+          if (type === 'draw2' || type === 'wild4') {
             setState(prev => {
               let s = { ...prev, players: prev.players.map(p => ({ ...p, hand: [...p.hand] })) };
               if (type === 'draw2') s = drawCards(s, target, 2);
@@ -107,17 +135,18 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           }
         }, 600);
 
+        const baseWait = isSkipLike ? 1000 : 600 + flyTime + 100;
         const t2 = setTimeout(() => {
           lockBoard(1800);
           setState(prev => {
             if (!prev.pendingAction) return prev;
             return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null });
           });
-        }, 600 + flyTime + 100);
+        }, baseWait);
 
         return () => { clearTimeout(t1); clearTimeout(t2); };
       } else {
-        // Actor actions (Reverse, Wild) — wait for card to land before flashing tag
+        // Normal 3+ player Reverse & Wild — activeSeat is still on the actor
         const text = type === 'reverse' ? 'REVERSE!' : `${color?.toUpperCase()}!`;
 
         const t1 = setTimeout(() => {

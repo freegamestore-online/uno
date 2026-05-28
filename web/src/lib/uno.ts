@@ -182,9 +182,15 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
     }
     case 'reverse': {
       s.direction = (s.direction * -1) as 1 | -1;
-      const nextPlayer = n === 2 ? playerIndex : advance(playerIndex);
-      s.pendingAction = { type: 'reverse', target: playerIndex, nextPlayer, color: card.color };
-      s.currentPlayer = playerIndex;
+      if (n === 2) {
+        const opponent = advance(playerIndex);
+        s.pendingAction = { type: 'reverse', target: opponent, nextPlayer: playerIndex, color: card.color };
+        s.currentPlayer = playerIndex; // held here; useUnoGame moves it to opponent after REVERSE! tag
+      } else {
+        const nextPlayer = advance(playerIndex);
+        s.pendingAction = { type: 'reverse', target: playerIndex, nextPlayer, color: card.color };
+        s.currentPlayer = playerIndex;
+      }
       break;
     }
     case 'draw2': {
