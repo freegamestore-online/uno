@@ -68,6 +68,14 @@
   from { transform: scale(0); opacity: 1; }
   to   { transform: scale(70); opacity: 1; }
 }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(28px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -96,6 +104,11 @@
   60%  { transform: scale(1.18); }
   100% { transform: scale(1.2); }
 }
+
+@keyframes draw-pile-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(255,255,255,0.7)); }
+  50%       { filter: drop-shadow(0 0 16px rgba(255,255,255,1)); }
+}
 @keyframes menu-card-in-locked {
   from { opacity: 0; transform: translateY(32px) scale(0.9); }
   to   { opacity: 0.5; transform: translateY(0) scale(1); }
@@ -104,14 +117,18 @@
   from { left: -80px; }
   to   { left: 220px; }
 }
+@keyframes screen-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-20px); }
+}
 
 /* 3-phase draw animation: Rise → Fly → Drop
-   Requires --tx and --ty CSS vars set on the element for the target offset */
+   Requires --tx, --ty, and --endScale CSS vars set on the element */
 @keyframes card-draw-arc {
   0% {
     transform: translate(-50%, -50%) scale(1) rotate(0deg);
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
-    z-index: 200;
+    z-index: 2;
     opacity: 1;
     animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
@@ -127,36 +144,32 @@
     animation-timing-function: linear;
   }
   74% {
-    /* Fly: most of the rotation done while airborne */
+    /* Fly: most of the rotation done while airborne, approaching endScale */
     transform: translate(
       calc(-50% + var(--tx) * 0.82),
       calc(-50% + var(--ty) * 0.82 - 18px)
-    ) scale(1.35) rotate(calc(var(--trot, 0deg) * 0.8));
+    ) scale(calc(var(--endScale, 1) + 0.35)) rotate(calc(var(--trot, 0deg) * 0.8));
     filter: drop-shadow(0 10px 16px rgba(0,0,0,0.4));
     z-index: 200;
     opacity: 1;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  75% {
-    /* Step z-index at the exact moment the drop begins */
-    z-index: var(--tzIndex, 200);
   }
   92% {
     /* Drop: fully rotated, tucked behind the right neighbours */
     transform: translate(
       calc(-50% + var(--tx)),
       calc(-50% + var(--ty))
-    ) scale(0.95) rotate(var(--trot, 0deg));
+    ) scale(calc(var(--endScale, 1) - 0.05)) rotate(var(--trot, 0deg));
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     z-index: var(--tzIndex, 200);
     opacity: 1;
   }
   100% {
-    /* Firmly landed, exact slot angle */
+    /* Firmly landed at final scale */
     transform: translate(
       calc(-50% + var(--tx)),
       calc(-50% + var(--ty))
-    ) scale(1) rotate(var(--trot, 0deg));
+    ) scale(var(--endScale, 1)) rotate(var(--trot, 0deg));
     filter: none;
     z-index: var(--tzIndex, 200);
     opacity: 1;
@@ -172,6 +185,19 @@
   0%, 99.9% { opacity: 0; }
   100%       { opacity: 1; }
 }
+/* Wild +4 Lightning Effects */
+@keyframes wild4-color-cycle {
+  0%   { stroke: #dc2626; color: #dc2626; }
+  25%  { stroke: #2563eb; color: #2563eb; }
+  50%  { stroke: #16a34a; color: #16a34a; }
+  75%  { stroke: #eab308; color: #eab308; }
+}
+@keyframes wild4-flicker {
+  0%, 100% { stroke-width: 4px; }
+  50%      { stroke-width: 1px; }
+  25%, 75% { stroke-width: 3px; }
+}
+
 /* Plays a card: flies from hand/CPU slot to discard pile; mirrors the 5-step draw-arc physics */
 @keyframes card-play-arc {
   0% {
@@ -205,6 +231,47 @@
   }
 }
 
+@keyframes fly-to-center {
+  0% {
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--trot)) scale(1);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  18% {
+    transform: translate(
+      calc(-50% + var(--tx) * 0.92 + (var(--card-md-w) / 2 + 10px) * 0.08),
+      calc(-50% + var(--ty) * 0.94 - 64px)
+    ) rotate(calc(var(--trot) * 0.9)) scale(1.5);
+    filter: drop-shadow(0 20px 28px rgba(0,0,0,0.55));
+    animation-timing-function: linear;
+  }
+  74% {
+    transform: translate(
+      calc(-50% + var(--tx) * 0.18 + (var(--card-md-w) / 2 + 10px) * 0.82),
+      calc(-50% + var(--ty) * 0.18 - 18px)
+    ) rotate(calc(var(--trot) * 0.2)) scale(2.8);
+    filter: drop-shadow(0 10px 16px rgba(0,0,0,0.4));
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  92% {
+    transform: translate(calc(-50% + var(--card-md-w) / 2 + 10px), -50%) scale(3.325);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  100% {
+    transform: translate(calc(-50% + var(--card-md-w) / 2 + 10px), -50%) scale(3.5);
+    filter: none;
+  }
+}
+
+@keyframes picker-to-discard {
+  0% {
+    transform: translate(calc(-50% + var(--startX)), calc(-50% + var(--startY))) scale(var(--startScale, 3.5)) rotate(0deg);
+  }
+  100% {
+    transform: translate(calc(-50% + var(--endX)), calc(-50% + var(--endY))) scale(1) rotate(0deg);
+  }
+}
+
 /* ── Games are fullscreen — no document scroll, no text selection ── */
 html {
   height: 100%;
@@ -215,7 +282,7 @@ body {
   margin: 0;
   height: 100dvh;
   overflow: hidden;
-  background: var(--paper);
+  background: #0d0520;
   color: var(--ink);
   -webkit-user-select: none;
   user-select: none;

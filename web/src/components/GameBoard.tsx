@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { GameShell, GameTopbar, GameButton } from '@freegamestore/games';
+import { GameButton } from '@freegamestore/games';
 import { useUnoGame } from '../hooks/useUnoGame';
 import { Card } from './Card';
 import { ColorPicker } from './ColorPicker';
@@ -9,7 +9,7 @@ const COLOR_BG: Record<string, string> = {
   red: '#dc2626',
   green: '#16a34a',
   blue: '#2563eb',
-  yellow: '#d97706',
+  yellow: '#eab308',
   wild: '#7c3aed',
 };
 
@@ -32,7 +32,7 @@ function sortHand(hand: UnoCard[]): UnoCard[] {
 
 // Calculates exact --tx/--ty offset from the flying card's absolute anchor to the real slot.
 // Uses board container dimensions so the topbar height is properly excluded.
-function getHumanCardTarget(hand: UnoCard[], cardId: string): { tx: string; ty: string; trot: string; tzIndex: number } {
+function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false): { tx: string; ty: string; trot: string; tzIndex: number } {
   const board = document.getElementById('board-container');
   const vw = board ? board.clientWidth : window.innerWidth;
   const vh = board ? board.clientHeight : window.innerHeight;
@@ -62,7 +62,8 @@ function getHumanCardTarget(hand: UnoCard[], cardId: string): { tx: string; ty: 
   const cardH = cardW * 1.45;
 
   const bottomX = vw / 2 + x;
-  const bottomY = vh - anchorBottom + yArc;
+  const lift = isPlaying ? -30 : 0;
+  const bottomY = vh - anchorBottom + yArc + lift;
 
   const cardCenterX = bottomX + (cardH / 2) * Math.sin(rotationRad);
   const cardCenterY = bottomY - (cardH / 2) * Math.cos(rotationRad);
@@ -83,17 +84,19 @@ function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, p
   const vw = board ? board.clientWidth : window.innerWidth;
   const vh = board ? board.clientHeight : window.innerHeight;
 
-  const total = Math.min(hand.length, 15);
+  const total = hand.length;
   const effectiveIdx = Math.min(Math.max(cardIdx, 0), total - 1);
   const fanCenter = (total - 1) / 2;
   const offset = effectiveIdx - fanCenter;
 
   const pos = players[playerIdx]?.position ?? 'top';
   const isSidePlayer = pos === 'left' || pos === 'right';
-  const baseCurve = isSidePlayer ? 3.2 : 2.0;
-  const yArcMult = total <= 1 ? 0 : Math.max(0.15, baseCurve / Math.max(1, total * 0.3));
+  const baseCurve = isSidePlayer ? 4.5 : 3.5;
+  const maxArcPx = isSidePlayer ? 36 : 28;
+  const naturalMult = total <= 1 ? 0 : baseCurve / Math.max(1, total * 0.3);
+  const yArcMult = total <= 1 ? 0 : Math.min(naturalMult, fanCenter > 0 ? maxArcPx / (fanCenter * fanCenter) : 1);
   const xStep = Math.min(24, 200 / Math.max(total - 1, 1));
-  const degsEach = total <= 1 ? 0 : Math.min(8, 50 / (total - 1));
+  const degsEach = total <= 1 ? 0 : Math.min(10, 60 / (total - 1));
 
   const localX = offset * xStep;
   const localY = offset * offset * yArcMult;
@@ -139,7 +142,7 @@ function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, p
   };
 }
 
-function PlayingCardAnim({ startX, startY, startRot, card, isCPU, onDone }: { startX: string; startY: string; startRot: string; card: UnoCard; isCPU?: boolean; onDone: () => void }) {
+function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 720);
     return () => clearTimeout(t);
@@ -156,12 +159,12 @@ function PlayingCardAnim({ startX, startY, startRot, card, isCPU, onDone }: { st
         '--startX': startX,
         '--startY': startY,
         '--startRot': startRot,
-        '--startScale': isCPU ? 0.7 : 1,
+        '--startScale': isCPU ? 0.7 : startScale,
         '--endX': 'calc(var(--card-md-w) + 20px)',
         '--endY': '0px',
-        animation: 'card-play-arc 700ms linear both',
+        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : 'card-play-arc 700ms linear both',
         zIndex: 300,
-        perspective: isCPU ? '600px' : undefined,
+        perspective: (isCPU || isFromPicker) ? '600px' : undefined,
       } as React.CSSProperties}
     >
       {isCPU ? (
@@ -171,6 +174,40 @@ function PlayingCardAnim({ startX, startY, startRot, card, isCPU, onDone }: { st
           </div>
           <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
             <Card card={card} size="md" />
+          </div>
+        </div>
+      ) : isFromPicker ? (
+        <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out reverse both' }}>
+          <div style={{ backfaceVisibility: 'hidden' }}>
+            <Card card={card} size="md" />
+          </div>
+          <div
+            className="absolute top-0 left-0 rounded-lg border-[3px] border-white overflow-hidden bg-[#0a0a0a]"
+            style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+          >
+            <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
+              <defs>
+                <clipPath id="picker-oval-clip-play">
+                  <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
+                </clipPath>
+                <path id="arc-top-play" d="M -46,0 A 46 72.7 0 0 1 46 0" transform="rotate(22)" />
+                <path id="arc-bot-play" d="M -46,0 A 46 72.7 0 0 0 46 0" transform="rotate(22)" />
+              </defs>
+              <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">
+                <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="#2563eb" />
+                <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="#16a34a" />
+                <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="#eab308" />
+                <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="#dc2626" />
+              </g>
+              <g transform="translate(50, 72.5)">
+                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                  <textPath href="#arc-top-play" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
+                </text>
+                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                  <textPath href="#arc-bot-play" startOffset="76%" textAnchor="middle">COLOR</textPath>
+                </text>
+              </g>
+            </svg>
           </div>
         </div>
       ) : (
@@ -199,7 +236,9 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { 
         '--ty': ty,
         '--trot': trot,
         '--tzIndex': tzIndex,
-        animation: `card-draw-arc 700ms linear ${delay}ms both`,
+        '--endScale': size === 'sm' ? 0.7 : 1,
+        opacity: 0,
+        animation: `card-draw-arc 700ms linear ${delay}ms forwards`,
         perspective: card ? '600px' : undefined,
       } as React.CSSProperties}
     >
@@ -210,7 +249,7 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { 
       }}>
         {/* Back face — hidden after 90° */}
         <div style={{ backfaceVisibility: card ? 'hidden' : undefined }}>
-          <Card card={{ id: 'flying-back', color: 'wild', value: 'wild' }} faceDown size={size} />
+          <Card card={{ id: 'flying-back', color: 'wild', value: 'wild' }} faceDown size="md" thick={size === 'sm'} />
         </div>
         {/* Front face — pre-rotated so it faces viewer at 180° */}
         {card && (
@@ -220,7 +259,7 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { 
             backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
           }}>
-            <Card card={card} size={size} />
+            <Card card={card} size="md" thick={size === 'sm'} />
           </div>
         )}
       </div>
@@ -231,9 +270,11 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { 
 interface Props {
   opponents: OpponentConfig[];
   onExit: () => void;
+  onRestart?: () => void;
+  onGameInfoChange?: (info: { cards: number; turn: string; isMyTurn: boolean }) => void;
 }
 
-export function GameBoard({ opponents, onExit }: Props) {
+export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Props) {
   // activeSeat must be declared before useUnoGame so it can be passed in
   const [activeSeat, setActiveSeat] = useState<number | null>(0);
   const { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, restart } = useUnoGame(opponents, activeSeat);
@@ -244,13 +285,19 @@ export function GameBoard({ opponents, onExit }: Props) {
   const knownCardIdsRef = useRef<Set<string>>(new Set());
   const prevHandLengthsRef = useRef<number[]>([]);
   // Play animation: card flies from player's slot to discard pile
-  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; card: UnoCard; isCPU?: boolean }>>([]);
+  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean }>>([]);
   const [hiddenDiscardId, setHiddenDiscardId] = useState<string | null>(null);
   const prevDiscardIdsRef = useRef<Set<string>>(new Set());
   const prevPlayersRef = useRef<import('../lib/uno').Player[]>([]);
   // Turn-line animation state
   const [turnLine, setTurnLine] = useState({ offset: 0, length: 0, traveling: false });
+  const [wildTravelColor, setWildTravelColor] = useState<string | null>(null);
   const [animatingFrom, setAnimatingFrom] = useState<number>(0);
+  const [pickerBg, setPickerBg] = useState<'in' | 'out' | null>(null);
+  const [dealLightningOffset, setDealLightningOffset] = useState<{ offset: number; length: number; phase: 0 | 1 | 2 | 3; dur: number } | null>(null);
+  // Direction indicator fade
+  const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
+  const [dirOpacity, setDirOpacity] = useState(1);
 
   const deskRef = useRef<HTMLDivElement>(null);
   const [desk, setDesk] = useState({ w: 700, h: 340 });
@@ -263,6 +310,16 @@ export function GameBoard({ opponents, onExit }: Props) {
     obs.observe(deskRef.current);
     return () => obs.disconnect();
   }, []);
+
+  // Exact physical pixel distances to each midline — bypasses browser arc-approximation
+  const { w: deskW, h: deskH } = desk;
+  const ix = 24, iy = 24, ir = 8;
+  // Same path the turn line uses (triple-loop so dashoffset can cross the seam)
+  const _dl = `H ${deskW-ix-ir} A ${ir},${ir} 0 0,1 ${deskW-ix},${iy+ir} V ${deskH-iy-ir} A ${ir},${ir} 0 0,1 ${deskW-ix-ir},${deskH-iy} H ${ix+ir} A ${ir},${ir} 0 0,1 ${ix},${deskH-iy-ir} V ${iy+ir} A ${ir},${ir} 0 0,1 ${ix+ir},${iy} H ${deskW/2}`;
+  // 4-loop path (pathLength=4000): starting at loop 2 + up to 2 loops travel never exceeds 4000
+  const deskInnerPath = `M ${deskW/2},${iy} ${_dl} ${_dl} ${_dl} ${_dl} Z`;
+  const distRight = (deskW / 2 - ix - ir) + (Math.PI * ir) / 2 + (deskH / 2 - iy - ir);
+  const P = distRight * 4;
 
   const removeFlyAnim = useCallback((id: string) => {
     setFlyingCards(prev => prev.filter(c => c.id !== id));
@@ -283,6 +340,50 @@ export function GameBoard({ opponents, onExit }: Props) {
 
     if (prevLengths.length === 0 || playersWhoGrew !== 1) {
       knownCardIdsRef.current = allCurrentIds;
+
+      if (prevLengths.length === 0) {
+        // Deal all cards to each player in position order: bottom → left → top → right
+        const dealStart = 600;
+        const cardInterval = 150;
+        const anims: FlyAnim[] = [];
+        const newHidden = new Map<string, number>();
+
+        const posOrder: Record<string, number> = { bottom: 0, left: 1, top: 2, right: 3 };
+        const dealOrder = [...state.players].sort((a, b) =>
+          (posOrder[a.position] ?? 0) - (posOrder[b.position] ?? 0)
+        );
+
+        let dealIndex = 0;
+        for (const dealPlayer of dealOrder) {
+          const playerIdx = state.players.findIndex(p => p.id === dealPlayer.id);
+          // Human fan is sorted; CPU fan renders in hand order — iterate matching order so cards land left→right
+          const handInFanOrder = playerIdx === 0 ? sortHand(dealPlayer.hand) : dealPlayer.hand;
+
+          for (const card of handInFanOrder) {
+            const delay = dealStart + dealIndex * cardInterval;
+            dealIndex++;
+
+            let tx: string, ty: string, trot: string, tzIndex: number;
+            let size: 'sm' | 'md';
+
+            if (playerIdx === 0) {
+              ({ tx, ty, trot, tzIndex } = getHumanCardTarget(dealPlayer.hand, card.id));
+              size = 'md';
+            } else {
+              const cIdx = dealPlayer.hand.findIndex(c => c.id === card.id);
+              ({ tx, ty, trot, tzIndex } = getCPUCardTarget(dealPlayer.hand, playerIdx, cIdx, state.players));
+              size = 'sm';
+            }
+
+            newHidden.set(card.id, delay);
+            anims.push({ id: `deal-${Date.now()}-${playerIdx}-${dealIndex}`, cardId: card.id, playerId: playerIdx, delay, tx, ty, trot, tzIndex, size, card: playerIdx === 0 ? card : null });
+          }
+        }
+
+        if (newHidden.size > 0) setHiddenCardIds(prev => new Map([...prev, ...newHidden]));
+        if (anims.length > 0) setFlyingCards(prev => [...prev, ...anims]);
+      }
+
       return;
     }
 
@@ -328,13 +429,19 @@ export function GameBoard({ opponents, onExit }: Props) {
       if (previousOwnerIdx !== -1) {
         const prevHand = prevPlayersRef.current[previousOwnerIdx]!.hand;
         let tx: string, ty: string, trot: string;
+        let startScale = 1;
         if (previousOwnerIdx === 0) {
-          ({ tx, ty, trot } = getHumanCardTarget(prevHand, top.id));
+          if (top.value === 'wild' || top.value === 'wild4') {
+            tx = 'calc(var(--card-md-w) / 2 + 10px)'; ty = '0px'; trot = '0deg'; startScale = 3.5;
+          } else {
+            ({ tx, ty, trot } = getHumanCardTarget(prevHand, top.id, true));
+          }
         } else {
           const cIdx = prevHand.findIndex(c => c.id === top.id);
           ({ tx, ty, trot } = getCPUCardTarget(prevHand, previousOwnerIdx, cIdx, prevPlayersRef.current));
         }
-        setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx, ty, trot, card: top, isCPU: previousOwnerIdx > 0 }]);
+        const isFromPicker = previousOwnerIdx === 0 && (top.value === 'wild' || top.value === 'wild4');
+        setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx, ty, trot, startScale, card: top, isCPU: previousOwnerIdx > 0, isFromPicker }]);
         setHiddenDiscardId(top.id);
       }
     }
@@ -345,19 +452,13 @@ export function GameBoard({ opponents, onExit }: Props) {
 
   // Turn-line travel: fires after currentPlayer or animatingFrom changes
   useLayoutEffect(() => {
-    const { w, h } = desk;
-    const ix = 24, iy = 24, ir = 8;
-    const straightW = w - 2 * ix - 2 * ir;
-    const straightH = h - 2 * iy - 2 * ir;
-    const P = 2 * straightW + 2 * straightH + 2 * Math.PI * ir;
-
-    // Rectangle midpoints are exactly 0%, 25%, 50%, and 75% of perimeter
+    const P = 1000;
     const getPos = (pIdx: number) => {
       const p = state.players[pIdx]?.position;
       if (p === 'top')    return 0;
-      if (p === 'right')  return P * 0.25;
-      if (p === 'bottom') return P * 0.5;
-      if (p === 'left')   return P * 0.75;
+      if (p === 'right')  return 250;
+      if (p === 'bottom') return 500;
+      if (p === 'left')   return 750;
       return 0;
     };
 
@@ -394,7 +495,7 @@ export function GameBoard({ opponents, onExit }: Props) {
 
     // T=720: head shoots out to target
     const t1 = setTimeout(() => {
-      setTurnLine({ offset: isFwd ? startOffset : targetOffset, length: D, traveling: true });
+      setTurnLine({ offset: targetOffset, length: D, traveling: true });
     }, 720);
 
     // T=1170: head arrives, tail starts catching up (720 + 450ms)
@@ -410,7 +511,7 @@ export function GameBoard({ opponents, onExit }: Props) {
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentPlayer, state.direction, state.players, animatingFrom, desk.w, desk.h]);
+  }, [state.currentPlayer, state.direction, state.players, animatingFrom]);
 
   const isMyTurn = state.phase === 'playing' &&
                    state.players[state.currentPlayer]?.id === 0 &&
@@ -426,6 +527,72 @@ export function GameBoard({ opponents, onExit }: Props) {
   const visualDirection = (isTopFlying && top.value === 'reverse')
     ? (state.direction * -1)
     : state.direction;
+
+  useEffect(() => {
+    if (state.phase === 'color-pick') {
+      setPickerBg('in');
+    }
+  }, [state.phase]);
+
+  useEffect(() => {
+    if (visualDirection === displayedDir) return;
+    setDirOpacity(0);
+    const t = setTimeout(() => {
+      setDisplayedDir(visualDirection);
+      setDirOpacity(1);
+    }, 350);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visualDirection]);
+
+  // Capture wild chosen color before pendingAction clears, release after turn line lands
+  useEffect(() => {
+    if (state.pendingAction?.type === 'wild' && state.pendingAction.color) {
+      setWildTravelColor(COLOR_BG[state.pendingAction.color] ?? '#ffffff');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.pendingAction?.type, state.pendingAction?.color]);
+
+  useEffect(() => {
+    if (!turnLine.traveling) setWildTravelColor(null);
+  }, [turnLine.traveling]);
+
+  // Deal lightning — 4-phase, mirrors turn-line head-then-tail stop:
+  //   Phase 0: snap invisible (length=0, head at name tag)
+  //   Phase 1: launch — both offset+length transition, head shoots out, tail stays at name tag
+  //   Phase 2: travel — only dashoffset transitions, fixed 160-unit spark circles
+  //   Phase 3: tail catch-up — only dasharray transitions, length 160→0
+  useEffect(() => {
+    const totalCards = state.players.reduce((sum, p) => sum + p.hand.length, 0);
+    const dur = 600 + (totalCards - 1) * 150 + 720;
+    const nLoops = Math.min(2, Math.ceil(totalCards / 7));
+
+    const pos = state.players[state.currentPlayer]?.position;
+    const nameTagPos = pos === 'top' ? 0 : pos === 'right' ? 250 : pos === 'bottom' ? 500 : pos === 'left' ? 750 : 500;
+
+    const departure    = nameTagPos + 1000;             // loop-2 name tag
+    const launchOffset = departure + 160;               // after launch: tail at name tag, head 160 ahead
+    const arrival      = nameTagPos + (1 + nLoops) * 1000; // where head stops (name tag, next loop)
+
+    const launchDur   = 250;
+    // tail must travel 160 units at the same speed as phase-2 spark
+    // travelDist = nLoops*1000 - 160; catchUpDur = 160 / (travelDist/travelDur)
+    // Solve jointly: travelDur = max(400, dur - 536 - launchDur - catchUpDur)
+    // where catchUpDur = 160 * travelDur / travelDist
+    const travelDist  = nLoops * 1000 - 160;
+    const travelDurRaw = Math.max(400, dur - 536 - launchDur);
+    const catchUpDur  = Math.round(160 * travelDurRaw / (travelDist + 160));
+    const travelDur   = travelDurRaw - catchUpDur;
+
+    const t0 = setTimeout(() => setDealLightningOffset({ offset: departure,    length: 0,   phase: 0, dur: 0          }), 520);
+    const t1 = setTimeout(() => setDealLightningOffset({ offset: launchOffset, length: 160, phase: 1, dur: launchDur  }), 536);
+    const t2 = setTimeout(() => setDealLightningOffset({ offset: arrival,      length: 160, phase: 2, dur: travelDur  }), 536 + launchDur);
+    const t3 = setTimeout(() => setDealLightningOffset({ offset: arrival,      length: 0,   phase: 3, dur: catchUpDur }), 536 + launchDur + travelDur);
+    const t4 = setTimeout(() => setDealLightningOffset(null), 536 + launchDur + travelDur + catchUpDur + 50);
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const me = state.players[0]!;
 
   function handleCardClick(card: UnoCard) {
@@ -441,6 +608,8 @@ export function GameBoard({ opponents, onExit }: Props) {
   }
 
   function handlePickColor(color: CardColor) {
+    setPickerBg('out');
+    setTimeout(() => setPickerBg(null), 600);
     if (selected) {
       humanPlay(selected, color);
       setSelected(null);
@@ -451,43 +620,33 @@ export function GameBoard({ opponents, onExit }: Props) {
 
   const cpuPlayers = state.players.slice(1);
 
+  useEffect(() => {
+    onGameInfoChange?.({ cards: me.hand.length, turn: state.players[state.currentPlayer]?.name ?? '', isMyTurn });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.hand.length, state.currentPlayer, isMyTurn]);
 
   return (
-    <GameShell
-      topbar={
-        <GameTopbar
-          title="UNO"
-          stats={[
-            { label: 'Cards', value: me.hand.length },
-            { label: 'Turn', value: state.players[state.currentPlayer]?.name ?? '', accent: isMyTurn },
-          ]}
-          actions={
-            <GameButton size="sm" variant="ghost" onClick={onExit}>
-              ✕
-            </GameButton>
-          }
-        />
-      }
-    >
       <div
         id="board-container"
-        className="relative w-full h-full overflow-hidden bg-[#0a0a0a]"
+        className="relative isolate w-full h-full overflow-hidden"
+        onClick={() => setSelected(null)}
         style={{
           '--card-sm-w': 'clamp(28px, 7vw, 36px)',
           '--card-md-w': 'clamp(40px, 10vw, 52px)',
         } as React.CSSProperties}
       >
-
         {/* Opponents */}
         {cpuPlayers.map((opp) => {
           const pos = opp.position ?? 'top';
-          const total = Math.min(opp.hand.length, 15);
+          const total = opp.hand.length;
           const fanCenter = (total - 1) / 2;
-          const degsEach = total <= 1 ? 0 : Math.min(8, 50 / (total - 1));
+          const degsEach = total <= 1 ? 0 : Math.min(10, 60 / (total - 1));
           const xStep = Math.min(24, 200 / Math.max(total - 1, 1));
           const isSidePlayer = pos === 'left' || pos === 'right';
-          const baseCurve = isSidePlayer ? 3.2 : 2.0;
-          const yArcMult = total <= 1 ? 0 : Math.max(0.15, baseCurve / Math.max(1, total * 0.3));
+          const baseCurve = isSidePlayer ? 4.5 : 3.5;
+          const maxArcPx = isSidePlayer ? 36 : 28;
+          const naturalMult = total <= 1 ? 0 : baseCurve / Math.max(1, total * 0.3);
+          const yArcMult = total <= 1 ? 0 : Math.min(naturalMult, fanCenter > 0 ? maxArcPx / (fanCenter * fanCenter) : 1);
           const fanAngle = pos === 'left' ? 330 : pos === 'right' ? 30 : 0;
 
           let layoutStyle: React.CSSProperties = { top: 'clamp(32px, 8vh, 100px)', left: '50%', transform: 'translateX(-50%)' };
@@ -512,7 +671,7 @@ export function GameBoard({ opponents, onExit }: Props) {
               }}
             >
               <div className="relative w-0 h-0" style={{ transform: `rotate(${fanAngle}deg)` }}>
-                {opp.hand.slice(0, 15).map((card, j) => {
+                {opp.hand.map((card, j) => {
                   const offset = j - fanCenter;
                   const rot = offset * degsEach;
                   const x = offset * xStep;
@@ -542,19 +701,22 @@ export function GameBoard({ opponents, onExit }: Props) {
         {/* Desk */}
         <div
           ref={deskRef}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
+          className="absolute flex items-center justify-center"
           style={{
+            inset: 0,
+            margin: 'auto',
             width: 'min(88vw, 700px)',
             height: 'clamp(200px, 44vh, 420px)',
             borderRadius: 32,
             background: 'radial-gradient(ellipse at 50% 40%, #1a5c32 0%, #0f3d20 100%)',
             border: '2px solid rgba(255,255,255,0.07)',
             boxShadow: 'inset 0 2px 16px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.6)',
+            animation: 'fade-up 0.55s cubic-bezier(0.22,1,0.36,1) both',
           }}
         >
           {/* Circulating direction & color arrows */}
           {(() => {
-            const cw = visualDirection === 1;
+            const cw = displayedDir === 1;
             const color = COLOR_BG[topColor] ?? '#7c3aed';
             const { w, h } = desk;
 
@@ -564,9 +726,10 @@ export function GameBoard({ opponents, onExit }: Props) {
 
             // Inner turn line sits 24px inside. Radius: 32 - 24 = 8.
             const ix = 24, iy = 24, ir = 8;
-            const drawLoop = `H ${w - ix - ir} A ${ir},${ir} 0 0,1 ${w - ix},${iy + ir} V ${h - iy - ir} A ${ir},${ir} 0 0,1 ${w - ix - ir},${h - iy} H ${ix + ir} A ${ir},${ir} 0 0,1 ${ix},${h - iy - ir} V ${iy + ir} A ${ir},${ir} 0 0,1 ${ix + ir},${iy}`;
+            const drawLoop = `H ${w - ix - ir} A ${ir},${ir} 0 0,1 ${w - ix},${iy + ir} V ${h - iy - ir} A ${ir},${ir} 0 0,1 ${w - ix - ir},${h - iy} H ${ix + ir} A ${ir},${ir} 0 0,1 ${ix},${h - iy - ir} V ${iy + ir} A ${ir},${ir} 0 0,1 ${ix + ir},${iy} H ${w/2}`;
             // Draw the path TWICE so offsets can cross the 0/P seam without getting clipped
-            const innerD = `M ${w/2},${iy} ${drawLoop} ${drawLoop} Z`;
+            const innerD = `M ${w/2},${iy} ${drawLoop} ${drawLoop} ${drawLoop} Z`;
+            const dur = 30;
 
             // Re-scaled for 1000 pathLength
             const layers = [
@@ -586,10 +749,17 @@ export function GameBoard({ opponents, onExit }: Props) {
                 className="absolute inset-0 w-full h-full pointer-events-none"
                 viewBox={`0 0 ${w} ${h}`}
                 preserveAspectRatio="none"
-                style={{ overflow: 'visible' }}
+                style={{ overflow: 'visible', opacity: dirOpacity, transition: 'opacity 350ms ease' }}
               >
-                {[0, -1.5].map((begin, i) => (
-                  <g key={`${i}-${visualDirection}`}>
+                <defs>
+                  <filter id="lightning-noise" x="-20%" y="-20%" width="140%" height="140%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise" seed="42" />
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="24" xChannelSelector="R" yChannelSelector="G" />
+                  </filter>
+                </defs>
+
+                {[0, -dur / 2].map((begin, i) => (
+                  <g key={`${i}-${displayedDir}`}>
                     {layers.map(({ len, op }) => (
                       <path
                         key={len}
@@ -606,7 +776,7 @@ export function GameBoard({ opponents, onExit }: Props) {
                           attributeName="stroke-dashoffset"
                           from={cw ? `${len}` : `-1000`}
                           to={cw ? `${len - 1000}` : `0`}
-                          dur="3s"
+                          dur={`${dur}s`}
                           begin={`${begin}s`}
                           repeatCount="indefinite"
                           calcMode="linear"
@@ -615,26 +785,98 @@ export function GameBoard({ opponents, onExit }: Props) {
                     ))}
                   </g>
                 ))}
-                {/* Turn transition glowing line */}
-                <path
-                  d={innerD}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeDasharray={`${turnLine.length} 99999`}
-                  strokeDashoffset={`${-turnLine.offset}`}
-                  opacity={turnLine.traveling ? 1 : 0}
-                  style={{
-                    transition: turnLine.traveling
-                      ? 'stroke-dashoffset 450ms linear, stroke-dasharray 450ms linear, opacity 50ms'
-                      : 'opacity 200ms ease-out',
-                    filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
-                  }}
-                />
+                {/* Turn transition line — lightning mode when wild4 is active */}
+                {(() => {
+                  const isFwd = state.direction === 1;
+                  const dashArray = isFwd
+                    ? `0 ${3000 - turnLine.length} ${turnLine.length} 0`
+                    : `${turnLine.length} 3000 0 0`;
+                  const isWild4 = state.pendingAction?.type === 'wild4';
+                  const isWild = !!wildTravelColor && turnLine.traveling;
+                  const wildColor = wildTravelColor ?? '#ffffff';
+                  const transition = turnLine.traveling
+                    ? 'stroke-dashoffset 450ms linear, stroke-dasharray 450ms linear, opacity 50ms'
+                    : 'opacity 200ms ease-out';
+                  const commonProps = {
+                    d: innerD, pathLength: '3000', fill: 'none',
+                    strokeLinecap: 'round' as const,
+                    strokeDasharray: dashArray,
+                    strokeDashoffset: `${-turnLine.offset}`,
+                    opacity: turnLine.traveling ? 1 : 0,
+                  };
+                  return isWild4 ? (
+                    <path
+                      {...commonProps}
+                      stroke="#dc2626"
+                      strokeWidth="3"
+                      style={{
+                        transition,
+                        filter: 'url(#lightning-noise) drop-shadow(0 0 10px currentColor)',
+                        animation: 'wild4-color-cycle 0.5s steps(1) infinite, wild4-flicker 0.15s linear infinite',
+                      }}
+                    />
+                  ) : isWild ? (
+                    <path
+                      {...commonProps}
+                      stroke={wildColor}
+                      strokeWidth="3"
+                      style={{
+                        transition,
+                        filter: `url(#lightning-noise) drop-shadow(0 0 10px ${wildColor})`,
+                        animation: 'wild4-flicker 0.15s linear infinite',
+                      }}
+                    />
+                  ) : (
+                    <path
+                      {...commonProps}
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                      style={{
+                        transition,
+                        filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
+                      }}
+                    />
+                  );
+                })()}
               </svg>
             );
           })()}
+
+          {/* Deal lightning — same pattern as wild-card turn line: state offset + CSS transition */}
+          {dealLightningOffset && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              viewBox={`0 0 ${deskW} ${deskH}`}
+              preserveAspectRatio="none"
+              style={{ overflow: 'visible', zIndex: 10 }}
+            >
+              <defs>
+                <filter id="deal-lightning-noise" x="-20%" y="-20%" width="140%" height="140%">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise" seed="42" />
+                  <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+                </filter>
+              </defs>
+              <path
+                d={deskInnerPath}
+                pathLength="4000"
+                fill="none"
+                stroke="white"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={`0 ${4000 - dealLightningOffset.length} ${dealLightningOffset.length} 0`}
+                strokeDashoffset={-dealLightningOffset.offset}
+                style={{
+                  transition:
+                    dealLightningOffset.phase === 1 ? `stroke-dashoffset ${dealLightningOffset.dur}ms linear, stroke-dasharray ${dealLightningOffset.dur}ms linear` :
+                    dealLightningOffset.phase === 2 ? `stroke-dashoffset ${dealLightningOffset.dur}ms linear` :
+                    dealLightningOffset.phase === 3 ? `stroke-dasharray ${dealLightningOffset.dur}ms linear` :
+                    'none',
+                  filter: 'url(#deal-lightning-noise) drop-shadow(0 0 10px white)',
+                  animation: 'wild4-flicker 0.15s linear infinite',
+                }}
+              />
+            </svg>
+          )}
 
           {/* Player name tags on the table edges */}
           {state.players.map((p, idx) => {
@@ -682,30 +924,34 @@ export function GameBoard({ opponents, onExit }: Props) {
 
           {/* Cards row */}
           <div className="flex gap-5 items-center relative">
-            {/* Draw pile */}
-            <div className="flex flex-col items-center gap-1">
-              <button
-                onClick={isMyTurn ? humanDraw : undefined}
-                disabled={!isMyTurn}
-                className={`bg-transparent border-none p-0 ${isMyTurn ? 'cursor-pointer opacity-100' : 'cursor-default opacity-60'}`}
-              >
-                <Card card={{ id: 'draw', color: 'wild', value: 'wild' }} faceDown />
-              </button>
-              <span className="text-white/70 text-[10px] font-sans">
-                {state.deck.length} left
-              </span>
+            {/* Draw pile (Static 3D Stack) */}
+            <div className="relative shrink-0" style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', animation: isMyTurn && !me.hand.some(c => isPlayable(c, top)) ? 'draw-pile-pulse 1.4s ease-in-out infinite' : undefined }}>
+              {Array.from({ length: 4 }).map((_, i, arr) => {
+                const isTop = i === arr.length - 1;
+                return (
+                  <button
+                    key={i}
+                    onClick={isTop && isMyTurn ? () => { setSelected(null); humanDraw(); } : undefined}
+                    disabled={!isTop || !isMyTurn}
+                    className={`absolute inset-0 bg-transparent border-none p-0 outline-none ${isTop && isMyTurn ? 'cursor-pointer' : 'cursor-default'} ${!isTop ? 'pointer-events-none' : ''}`}
+                    style={{
+                      zIndex: i,
+                      transform: `translateY(-${i * 2.5}px)`,
+                    }}
+                  >
+                    <Card card={{ id: `draw-${i}`, color: 'wild', value: 'wild' }} faceDown />
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Discard — layered so the previous card stays visible while the new one flies in */}
-            <div className="relative flex items-center justify-center">
-              {state.discard.length > 1 && (
-                <div className="absolute">
-                  <Card card={state.discard[state.discard.length - 2]!} />
+            {/* Discard pile (Single Flat Card) */}
+            <div className="relative shrink-0" style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45' }}>
+              {state.discard.length > 0 && (
+                <div className="absolute inset-0 pointer-events-none">
+                  <Card card={visualTopCard} />
                 </div>
               )}
-              <div style={{ opacity: hiddenDiscardId === top.id ? 0 : 1 }} className="relative z-10">
-                <Card card={top} />
-              </div>
             </div>
           </div>
         </div>
@@ -714,6 +960,7 @@ export function GameBoard({ opponents, onExit }: Props) {
         {/* Player hand — fan layout */}
         {(() => {
           const hand = sortHand(me.hand);
+          const anyPlayable = isMyTurn && hand.some(c => isPlayable(c, top));
           const total = hand.length;
           const center = (total - 1) / 2;
           const degsEach = total <= 1 ? 0 : Math.min(6, 40 / (total - 1));
@@ -745,7 +992,8 @@ export function GameBoard({ opponents, onExit }: Props) {
                   const yArc = offset * offset * yArcMult;
                   const playable = isMyTurn && isPlayable(card, top);
                   const isSelected = selected === card.id;
-                  const lift = isSelected ? -22 : playable ? -8 : 0;
+                  const isColorPicking = state.phase === 'color-pick' && state.pendingCardId === card.id;
+                  const lift = isSelected ? -22 : 0;
                   const snapDelay = hiddenCardIds.get(card.id);
                   const isHidden = snapDelay !== undefined;
 
@@ -759,19 +1007,13 @@ export function GameBoard({ opponents, onExit }: Props) {
                         transform: `translateX(${x}px) translateY(${yArc + lift}px) rotate(${rotation}deg)`,
                         transformOrigin: 'bottom center',
                         zIndex: isSelected ? total + 10 : i,
-                        transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), z-index 0s',
-                        // snap-visible: keep slot invisible until flying card lands, then snap to opacity 1
+                        transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), filter 0.2s ease, z-index 0s',
                         animation: isHidden ? `snap-visible 700ms ${snapDelay}ms both` : undefined,
+                        opacity: isColorPicking ? 0 : 1,
+                        filter: isColorPicking ? undefined : isMyTurn && !isSelected && (!anyPlayable || !playable) ? 'brightness(0.45)' : undefined,
+                        pointerEvents: isColorPicking ? 'none' : 'auto',
                       }}
-                      onMouseEnter={e => {
-                        if (playable && !isSelected)
-                          (e.currentTarget as HTMLDivElement).style.transform =
-                            `translateX(${x}px) translateY(${yArc - 16}px) rotate(${rotation}deg)`;
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLDivElement).style.transform =
-                          `translateX(${x}px) translateY(${yArc + lift}px) rotate(${rotation}deg)`;
-                      }}
+                      onClick={e => e.stopPropagation()}
                     >
                       <Card
                         card={card}
@@ -818,8 +1060,10 @@ export function GameBoard({ opponents, onExit }: Props) {
             startX={pc.tx}
             startY={pc.ty}
             startRot={pc.trot}
+            startScale={pc.startScale}
             card={pc.card}
             isCPU={pc.isCPU}
+            isFromPicker={pc.isFromPicker}
             onDone={() => {
               setPlayingCards(prev => prev.filter(c => c.id !== pc.id));
               setHiddenDiscardId(null);
@@ -827,8 +1071,23 @@ export function GameBoard({ opponents, onExit }: Props) {
           />
         ))}
 
+        {/* Color picker dim background — lives in GameBoard so it outlasts ColorPicker unmount */}
+        {pickerBg && (
+          <div
+            className="absolute inset-0 bg-black/60 pointer-events-none"
+            style={{
+              zIndex: 49,
+              animation: pickerBg === 'in' ? 'fade-in 700ms ease-out forwards' : 'fade-out 600ms ease-out forwards',
+            }}
+          />
+        )}
+
         {/* Color picker overlay */}
-        {state.phase === 'color-pick' && <ColorPicker onPick={handlePickColor} />}
+        {state.phase === 'color-pick' && state.pendingCardId && (() => {
+          const card = me.hand.find(c => c.id === state.pendingCardId)!;
+          const { tx, ty, trot } = getHumanCardTarget(me.hand, card.id, true);
+          return <ColorPicker onPick={handlePickColor} tx={tx} ty={ty} trot={trot} card={card} />;
+        })()}
 
         {/* Game over overlay */}
         {state.phase === 'game-over' && (
@@ -837,7 +1096,7 @@ export function GameBoard({ opponents, onExit }: Props) {
               {state.winner === 0 ? 'You Win!' : `${state.players[state.winner ?? 0]?.name ?? 'CPU'} Wins!`}
             </p>
             <div className="flex gap-3">
-              <GameButton variant="primary" size="lg" onClick={() => { restart(); setSelected(null); }}>
+              <GameButton variant="primary" size="lg" onClick={() => onRestart?.()}>
                 Play Again
               </GameButton>
               <GameButton variant="secondary" size="lg" onClick={onExit}>
@@ -847,6 +1106,5 @@ export function GameBoard({ opponents, onExit }: Props) {
           </div>
         )}
       </div>
-    </GameShell>
   );
 }
