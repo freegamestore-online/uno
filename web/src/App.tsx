@@ -268,9 +268,6 @@ export default function App() {
               >Play</button>
             </div>
 
-            <a href="https://freeappstore.online" className="text-white/25 text-[11px] font-sans no-underline relative" style={{ animation: 'fade-up 0.5s ease both', animationDelay: '0.25s' }}>
-              FreeGameStore
-            </a>
           </>
         ) : (
           <>
@@ -319,9 +316,6 @@ export default function App() {
               ))}
             </div>
 
-            <a href="https://freeappstore.online" className="text-white/30 text-[11px] font-sans no-underline" style={{ animation: 'menu-card-in 0.5s ease both', animationDelay: '0.35s' }}>
-              FreeGameStore
-            </a>
           </>
         )}
       </div>
