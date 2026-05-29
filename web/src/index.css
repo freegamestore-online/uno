@@ -231,16 +231,33 @@
   }
 }
 
+/* Drag-play: card goes straight from drop position to discard, no arc */
+@keyframes card-play-direct {
+  0% {
+    transform: translate(calc(-50% + var(--startX)), calc(-50% + var(--startY))) scale(var(--startScale, 1)) rotate(var(--startRot));
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
+    animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  88% {
+    transform: translate(calc(-50% + var(--endX)), calc(-50% + var(--endY))) scale(0.95) rotate(0deg);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  }
+  100% {
+    transform: translate(calc(-50% + var(--endX)), calc(-50% + var(--endY))) scale(1) rotate(0deg);
+    filter: none;
+  }
+}
+
 @keyframes fly-to-center {
   0% {
-    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--trot)) scale(1);
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--trot)) scale(var(--fly-start-scale, 1));
     filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
     animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   18% {
     transform: translate(
       calc(-50% + var(--tx) * 0.92 + (var(--card-md-w) / 2 + 10px) * 0.08),
-      calc(-50% + var(--ty) * 0.94 - 64px)
+      calc(-50% + var(--ty) * 0.94 - var(--fly-lift, 64px))
     ) rotate(calc(var(--trot) * 0.9)) scale(1.5);
     filter: drop-shadow(0 20px 28px rgba(0,0,0,0.55));
     animation-timing-function: linear;
@@ -248,7 +265,7 @@
   74% {
     transform: translate(
       calc(-50% + var(--tx) * 0.18 + (var(--card-md-w) / 2 + 10px) * 0.82),
-      calc(-50% + var(--ty) * 0.18 - 18px)
+      calc(-50% + var(--ty) * 0.18 - var(--fly-lift-sm, 18px))
     ) rotate(calc(var(--trot) * 0.2)) scale(2.8);
     filter: drop-shadow(0 10px 16px rgba(0,0,0,0.4));
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CardColor, UnoCard } from '../lib/uno';
 import { Card } from './Card';
 
@@ -15,10 +15,13 @@ interface Props {
   ty: string;
   trot: string;
   card: UnoCard;
+  isDrag?: boolean;
+  startScale?: number;
 }
 
-export function ColorPicker({ onPick, tx, ty, trot, card }: Props) {
+export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: Props) {
   const [hovered, setHovered] = useState<CardColor | null>(null);
+  const startPos = useRef({ tx, ty, trot, isDrag, startScale });
 
   return (
     <div className="absolute inset-0 z-50 pointer-events-auto overflow-hidden">
@@ -27,9 +30,12 @@ export function ColorPicker({ onPick, tx, ty, trot, card }: Props) {
         style={{
           left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
           top: '50%',
-          '--tx': tx,
-          '--ty': ty,
-          '--trot': trot,
+          '--tx': startPos.current.tx,
+          '--ty': startPos.current.ty,
+          '--trot': startPos.current.trot,
+          '--fly-lift': startPos.current.isDrag ? '0px' : undefined,
+          '--fly-lift-sm': startPos.current.isDrag ? '0px' : undefined,
+          '--fly-start-scale': startPos.current.startScale != null ? String(startPos.current.startScale) : undefined,
           animation: 'fly-to-center 700ms linear forwards',
           transformOrigin: 'center center',
           perspective: '600px',
