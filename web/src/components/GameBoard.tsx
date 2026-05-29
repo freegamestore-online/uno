@@ -76,7 +76,7 @@ function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false):
   return { tx, ty, trot, tzIndex: cardIdx };
 }
 
-interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null }
+interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; drawStartX?: string; drawStartY?: string; }
 
 // Calculates exact --tx/--ty for a CPU card slot using the player's physical position.
 function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, players: Player[]): { tx: string; ty: string; trot: string; tzIndex: number } {
@@ -217,9 +217,10 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
   );
 }
 
-function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; onDone: () => void }) {
+function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
+  const dur = isDragDraw ? 520 : 720;
   useEffect(() => {
-    const t = setTimeout(onDone, delay + 720);
+    const t = setTimeout(onDone, delay + dur);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -237,15 +238,19 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, onDone }: { 
         '--trot': trot,
         '--tzIndex': tzIndex,
         '--endScale': size === 'sm' ? 0.7 : 1,
-        opacity: 0,
-        animation: `card-draw-arc 700ms linear ${delay}ms forwards`,
+        '--startX': isDragDraw ? drawStartX : undefined,
+        '--startY': isDragDraw ? drawStartY : undefined,
+        opacity: isDragDraw ? undefined : 0,
+        animation: isDragDraw
+          ? `card-draw-direct 500ms ${delay}ms both`
+          : `card-draw-arc 700ms linear ${delay}ms forwards`,
         perspective: card ? '600px' : undefined,
       } as React.CSSProperties}
     >
       {/* Inner div: owns the flip (rotateY). Separated so preserve-3d isn't killed by the arc animation. */}
       <div style={{
         transformStyle: card ? 'preserve-3d' : undefined,
-        animation: card ? `card-flip 700ms ease-in-out ${delay}ms both` : undefined,
+        animation: card ? `card-flip ${isDragDraw ? 500 : 700}ms ease-in-out ${delay}ms both` : undefined,
       }}>
         {/* Back face — hidden after 90° */}
         <div style={{ backfaceVisibility: card ? 'hidden' : undefined }}>
@@ -297,63 +302,129 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [dealLightningOffset, setDealLightningOffset] = useState<{ offset: number; length: number; phase: 0 | 1 | 2 | 3; dur: number } | null>(null);
   // Drag-to-play / drag-to-draw
   const DRAG_THRESHOLD = 120;
-  const dragRef = useRef<{ el: HTMLElement; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; usePositionOverride: boolean; startX: number; startY: number; elCX: number; elCY: number; action: () => void } | null>(null);
+  const dragRef = useRef<{ el: HTMLElement; parent: HTMLElement | null; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; liftedZIndex: string; usePositionOverride: boolean; invertY: boolean; startX: number; startY: number; elCX: number; elCY: number; action: () => void } | null>(null);
   const didDragActionRef = useRef(false);
   const didDragMoveRef = useRef(false);
   const dragPlayOverrideRef = useRef<{ tx: string; ty: string; trot: string; startScale: number } | null>(null);
+  const dragDrawOverrideRef = useRef<{ startX: string; startY: string } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function startDrag(e: React.PointerEvent<HTMLElement>, action: () => void, baseRotation = 0, usePositionOverride = true) {
+  function startDrag(e: React.PointerEvent<HTMLElement>, action: () => void, baseRotation = 0, usePositionOverride = true, invertY = false) {
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
     const r = el.getBoundingClientRect();
     const baseTransform = el.style.transform;
     const baseTransformNoRot = baseTransform.replace(/\s*rotate\([^)]*\)/, '');
     const baseZIndex = el.style.zIndex;
+    const liftedZIndex = '9999';
+
+    if (invertY) {
+      el.style.transition = 'transform 180ms ease-out, filter 200ms ease';
+      const capturedNoRot = baseTransformNoRot;
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTimerRef.current = null;
+        if (dragRef.current) {
+          if (dragRef.current.parent) dragRef.current.parent.style.zIndex = '50';
+          if (deskRef.current) deskRef.current.style.zIndex = '50';
+          dragRef.current.el.style.zIndex = dragRef.current.liftedZIndex;
+          dragRef.current.el.style.transform = `${capturedNoRot} scale(1.5)`;
+        }
+      }, 150);
+    }
+
     didDragMoveRef.current = false;
-    dragRef.current = { el, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, usePositionOverride, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, action };
+    dragRef.current = { el, parent: el.parentElement as HTMLElement | null, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, liftedZIndex, usePositionOverride, invertY, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, action };
   }
+
   function moveDrag(e: React.PointerEvent<HTMLElement>) {
     const d = dragRef.current;
     if (!d) return;
+
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
     if (Math.hypot(dx, dy) > 8) didDragMoveRef.current = true;
-    const progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
-    const scale = 1 + progress * 0.5;
-    d.el.style.transition = 'filter 200ms ease';
-    d.el.style.zIndex = '9999';
-    const rot = (d.baseRotation * (1 - progress)).toFixed(2);
-    d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${scale.toFixed(3)})`;
-    d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
+
+    d.el.style.zIndex = d.liftedZIndex;
+    if (d.invertY) {
+      if (d.parent) d.parent.style.zIndex = '50';
+      if (deskRef.current) deskRef.current.style.zIndex = '50';
+    }
+
+    if (d.invertY) {
+      if (didDragMoveRef.current) d.el.style.transition = 'filter 200ms ease';
+      const progress = Math.min(Math.max(dy, 0) / DRAG_THRESHOLD, 1);
+      const scale = 1.5 - progress * 0.5;
+      d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) scale(${scale.toFixed(3)})`;
+      d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
+    } else {
+      d.el.style.transition = 'filter 200ms ease';
+      const progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
+      const scale = 1 + progress * 0.5;
+      const rot = (d.baseRotation * (1 - progress)).toFixed(2);
+      d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${scale.toFixed(3)})`;
+      d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
+    }
   }
+
   function endDrag(e: React.PointerEvent<HTMLElement>) {
+    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+
     const d = dragRef.current;
     if (!d) return;
     dragRef.current = null;
+
     const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
-    const dist = Math.hypot(dx, dy);
     d.el.style.filter = '';
-    if (dy <= -DRAG_THRESHOLD) {
-      d.el.style.zIndex = '';
+
+    const triggered = d.invertY ? dy >= DRAG_THRESHOLD : dy <= -DRAG_THRESHOLD;
+
+    if (d.parent) d.parent.style.zIndex = '';
+    if (deskRef.current) deskRef.current.style.zIndex = '';
+
+    if (triggered) {
+      d.el.style.zIndex = d.baseZIndex;
       const r2 = d.el.getBoundingClientRect();
-      const cardCX = r2.left + r2.width / 2;
-      const cardCY = r2.top + r2.height / 2;
+      const relCX = r2.left + r2.width / 2;
+      const relCY = r2.top + r2.height / 2;
+
       const board = document.getElementById('board-container')!;
       const br = board.getBoundingClientRect();
       const bvw = board.clientWidth;
       const bvh = board.clientHeight;
+
       const cardW = Math.min(52, Math.max(40, bvw * 0.1));
-      const originX = br.left + bvw / 2 - cardW / 2 - 10;
-      const originY = br.top + bvh / 2;
-      const tx = `${Math.round(cardCX - originX)}px`;
-      const ty = `${Math.round(cardCY - originY)}px`;
-      if (d.usePositionOverride) {
-        const scale = 1 + Math.min(-dy / DRAG_THRESHOLD, 1) * 0.5;
-        dragPlayOverrideRef.current = { tx, ty, trot: '0deg', startScale: parseFloat(scale.toFixed(3)) };
+      const anchorX = br.left + bvw / 2 - cardW / 2 - 10;
+      const anchorY = br.top + bvh / 2;
+
+      if (!d.invertY) {
+        const tx = `${Math.round(relCX - anchorX)}px`;
+        const ty = `${Math.round(relCY - anchorY)}px`;
+
+        if (d.usePositionOverride) {
+          const scale = 1 + Math.min(-dy / DRAG_THRESHOLD, 1) * 0.5;
+          dragPlayOverrideRef.current = { tx, ty, trot: '0deg', startScale: parseFloat(scale.toFixed(3)) };
+        }
+      } else {
+        dragDrawOverrideRef.current = {
+          startX: `${Math.round(relCX - anchorX)}px`,
+          startY: `${Math.round(relCY - anchorY)}px`,
+        };
+        d.el.style.transition = '';
+        d.el.style.transform = d.baseTransform;
+        d.el.style.opacity = '0';
+
+        const el = d.el;
+        setTimeout(() => {
+          el.style.opacity = '';
+          el.style.animation = 'deck-restock 320ms cubic-bezier(0.22, 1, 0.36, 1) both';
+          setTimeout(() => { el.style.animation = ''; }, 350);
+        }, 200);
       }
+
       didDragActionRef.current = true;
       d.action();
+      setTimeout(() => { didDragActionRef.current = false; didDragMoveRef.current = false; }, 0);
     } else {
       d.el.style.zIndex = d.baseZIndex;
       void d.el.offsetHeight;
@@ -468,10 +539,19 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
         let tx: string, ty: string, size: 'sm' | 'md';
         const actualCard = player.hand.find(c => c.id === cardId) ?? null;
         let trot: string, tzIndex: number;
+        let isDragDraw = false;
+        let drawStartX: string | undefined;
+        let drawStartY: string | undefined;
 
         if (playerIdx === 0) {
           ({ tx, ty, trot, tzIndex } = getHumanCardTarget(player.hand, cardId));
           size = 'md';
+          if (j === 0 && dragDrawOverrideRef.current) {
+            isDragDraw = true;
+            drawStartX = dragDrawOverrideRef.current.startX;
+            drawStartY = dragDrawOverrideRef.current.startY;
+            dragDrawOverrideRef.current = null;
+          }
         } else {
           const cIdx = player.hand.findIndex(c => c.id === cardId);
           ({ tx, ty, trot, tzIndex } = getCPUCardTarget(player.hand, playerIdx, cIdx, state.players));
@@ -479,7 +559,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
         }
 
         newHidden.set(cardId, delay);
-        anims.push({ id: `fly-${Date.now()}-${playerIdx}-${j}`, cardId, playerId: playerIdx, delay, tx, ty, trot, tzIndex, size, card: playerIdx === 0 ? actualCard : null });
+        anims.push({ id: `fly-${Date.now()}-${playerIdx}-${j}`, cardId, playerId: playerIdx, delay, tx, ty, trot, tzIndex, size, card: playerIdx === 0 ? actualCard : null, isDragDraw, drawStartX, drawStartY });
       });
     });
 
@@ -589,7 +669,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                    state.players[state.currentPlayer]?.id === 0 &&
                    !isLocked &&
                    activeSeat === 0 &&
-                   !state.pendingAction;
+                   !state.pendingAction &&
+                   !dealLightningOffset;
   const top = topCard(state);
   const isTopFlying = hiddenDiscardId === top.id && state.discard.length > 1;
 
@@ -1004,7 +1085,19 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                 return (
                   <button
                     key={i}
-                    onClick={isTop && isMyTurn ? () => { setSelected(null); humanDraw(); } : undefined}
+                    onPointerDown={isTop && isMyTurn ? e => {
+                      e.stopPropagation();
+                      startDrag(e, () => { setSelected(null); humanDraw(); }, 0, false, true);
+                    } : undefined}
+                    onPointerMove={isTop && isMyTurn ? moveDrag : undefined}
+                    onPointerUp={isTop && isMyTurn ? endDrag : undefined}
+                    onClick={isTop && isMyTurn ? e => {
+                      e.stopPropagation();
+                      if (didDragActionRef.current) { didDragActionRef.current = false; didDragMoveRef.current = false; return; }
+                      if (didDragMoveRef.current) { didDragMoveRef.current = false; return; }
+                      setSelected(null);
+                      humanDraw();
+                    } : undefined}
                     disabled={!isTop || !isMyTurn}
                     className={`absolute inset-0 bg-transparent border-none p-0 outline-none ${isTop && isMyTurn ? 'cursor-pointer' : 'cursor-default'} ${!isTop ? 'pointer-events-none' : ''}`}
                     style={{
@@ -1095,7 +1188,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                       onPointerUp={playable ? endDrag : undefined}
                       onClick={e => {
                         e.stopPropagation();
-                        if (didDragActionRef.current) { didDragActionRef.current = false; return; }
+                        if (didDragActionRef.current) { didDragActionRef.current = false; didDragMoveRef.current = false; return; }
                         if (didDragMoveRef.current) { didDragMoveRef.current = false; return; }
                         if (playable) handleCardClick(card);
                       }}
@@ -1126,6 +1219,9 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             tzIndex={fc.tzIndex}
             size={fc.size}
             card={fc.card}
+            isDragDraw={fc.isDragDraw}
+            drawStartX={fc.drawStartX}
+            drawStartY={fc.drawStartY}
             onDone={() => {
               removeFlyAnim(fc.id);
               setHiddenCardIds(prev => {
