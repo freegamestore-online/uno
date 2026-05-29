@@ -142,7 +142,7 @@ function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, p
   };
 }
 
-function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; onDone: () => void }) {
+function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, isDrag, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; onDone: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDone, 720);
     return () => clearTimeout(t);
@@ -162,7 +162,7 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
         '--startScale': isCPU ? 0.7 : startScale,
         '--endX': 'calc(var(--card-md-w) + 20px)',
         '--endY': '0px',
-        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : 'card-play-arc 700ms linear both',
+        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : isDrag ? 'card-play-direct 420ms both' : 'card-play-arc 700ms linear both',
         zIndex: 300,
         perspective: (isCPU || isFromPicker) ? '600px' : undefined,
       } as React.CSSProperties}
@@ -285,7 +285,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const knownCardIdsRef = useRef<Set<string>>(new Set());
   const prevHandLengthsRef = useRef<number[]>([]);
   // Play animation: card flies from player's slot to discard pile
-  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean }>>([]);
+  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean }>>([]);
   const [hiddenDiscardId, setHiddenDiscardId] = useState<string | null>(null);
   const prevDiscardIdsRef = useRef<Set<string>>(new Set());
   const prevPlayersRef = useRef<import('../lib/uno').Player[]>([]);
@@ -295,6 +295,73 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [animatingFrom, setAnimatingFrom] = useState<number>(0);
   const [pickerBg, setPickerBg] = useState<'in' | 'out' | null>(null);
   const [dealLightningOffset, setDealLightningOffset] = useState<{ offset: number; length: number; phase: 0 | 1 | 2 | 3; dur: number } | null>(null);
+  // Drag-to-play / drag-to-draw
+  const DRAG_THRESHOLD = 120;
+  const dragRef = useRef<{ el: HTMLElement; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; usePositionOverride: boolean; startX: number; startY: number; elCX: number; elCY: number; action: () => void } | null>(null);
+  const didDragActionRef = useRef(false);
+  const didDragMoveRef = useRef(false);
+  const dragPlayOverrideRef = useRef<{ tx: string; ty: string; trot: string; startScale: number } | null>(null);
+
+  function startDrag(e: React.PointerEvent<HTMLElement>, action: () => void, baseRotation = 0, usePositionOverride = true) {
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const r = el.getBoundingClientRect();
+    const baseTransform = el.style.transform;
+    const baseTransformNoRot = baseTransform.replace(/\s*rotate\([^)]*\)/, '');
+    const baseZIndex = el.style.zIndex;
+    didDragMoveRef.current = false;
+    dragRef.current = { el, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, usePositionOverride, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, action };
+  }
+  function moveDrag(e: React.PointerEvent<HTMLElement>) {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (Math.hypot(dx, dy) > 8) didDragMoveRef.current = true;
+    const progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
+    const scale = 1 + progress * 0.5;
+    d.el.style.transition = 'filter 200ms ease';
+    d.el.style.zIndex = '9999';
+    const rot = (d.baseRotation * (1 - progress)).toFixed(2);
+    d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${scale.toFixed(3)})`;
+    d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
+  }
+  function endDrag(e: React.PointerEvent<HTMLElement>) {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    const dist = Math.hypot(dx, dy);
+    d.el.style.filter = '';
+    if (dy <= -DRAG_THRESHOLD) {
+      d.el.style.zIndex = '';
+      const r2 = d.el.getBoundingClientRect();
+      const cardCX = r2.left + r2.width / 2;
+      const cardCY = r2.top + r2.height / 2;
+      const board = document.getElementById('board-container')!;
+      const br = board.getBoundingClientRect();
+      const bvw = board.clientWidth;
+      const bvh = board.clientHeight;
+      const cardW = Math.min(52, Math.max(40, bvw * 0.1));
+      const originX = br.left + bvw / 2 - cardW / 2 - 10;
+      const originY = br.top + bvh / 2;
+      const tx = `${Math.round(cardCX - originX)}px`;
+      const ty = `${Math.round(cardCY - originY)}px`;
+      if (d.usePositionOverride) {
+        const scale = 1 + Math.min(-dy / DRAG_THRESHOLD, 1) * 0.5;
+        dragPlayOverrideRef.current = { tx, ty, trot: '0deg', startScale: parseFloat(scale.toFixed(3)) };
+      }
+      didDragActionRef.current = true;
+      d.action();
+    } else {
+      d.el.style.zIndex = d.baseZIndex;
+      void d.el.offsetHeight;
+      d.el.style.transition = 'transform 0.35s cubic-bezier(0.34,1.2,0.64,1), filter 0.2s ease';
+      d.el.style.transform = d.baseTransform;
+    }
+  }
+
   // Direction indicator fade
   const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
   const [dirOpacity, setDirOpacity] = useState(1);
@@ -430,8 +497,12 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
         const prevHand = prevPlayersRef.current[previousOwnerIdx]!.hand;
         let tx: string, ty: string, trot: string;
         let startScale = 1;
+        const dragOverride = previousOwnerIdx === 0 ? dragPlayOverrideRef.current : null;
+        if (previousOwnerIdx === 0) dragPlayOverrideRef.current = null;
         if (previousOwnerIdx === 0) {
-          if (top.value === 'wild' || top.value === 'wild4') {
+          if (dragOverride) {
+            ({ tx, ty, trot, startScale } = dragOverride);
+          } else if (top.value === 'wild' || top.value === 'wild4') {
             tx = 'calc(var(--card-md-w) / 2 + 10px)'; ty = '0px'; trot = '0deg'; startScale = 3.5;
           } else {
             ({ tx, ty, trot } = getHumanCardTarget(prevHand, top.id, true));
@@ -440,8 +511,9 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           const cIdx = prevHand.findIndex(c => c.id === top.id);
           ({ tx, ty, trot } = getCPUCardTarget(prevHand, previousOwnerIdx, cIdx, prevPlayersRef.current));
         }
-        const isFromPicker = previousOwnerIdx === 0 && (top.value === 'wild' || top.value === 'wild4');
-        setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx, ty, trot, startScale, card: top, isCPU: previousOwnerIdx > 0, isFromPicker }]);
+        const isFromPicker = previousOwnerIdx === 0 && (top.value === 'wild' || top.value === 'wild4') && !dragOverride;
+        const isDrag = previousOwnerIdx === 0 && !!dragOverride;
+        setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx, ty, trot, startScale, card: top, isCPU: previousOwnerIdx > 0, isFromPicker, isDrag }]);
         setHiddenDiscardId(top.id);
       }
     }
@@ -531,6 +603,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   useEffect(() => {
     if (state.phase === 'color-pick') {
       setPickerBg('in');
+      dragPlayOverrideRef.current = null;
     }
   }, [state.phase]);
 
@@ -714,10 +787,10 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             animation: 'fade-up 0.55s cubic-bezier(0.22,1,0.36,1) both',
           }}
         >
-          {/* Circulating direction & color arrows */}
+          {/* Circulating direction & color arrows + turn line */}
           {(() => {
             const cw = displayedDir === 1;
-            const color = COLOR_BG[topColor] ?? '#7c3aed';
+            const color = COLOR_BG[topColor] ?? '#ffffff';
             const { w, h } = desk;
 
             // Desk border-radius is 32px. Outer path sits on edge (2px inset). Radius: 32 - 2 = 30.
@@ -993,7 +1066,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                   const playable = isMyTurn && isPlayable(card, top);
                   const isSelected = selected === card.id;
                   const isColorPicking = state.phase === 'color-pick' && state.pendingCardId === card.id;
-                  const lift = isSelected ? -22 : 0;
+                  const lift = isSelected ? -11 : 0;
                   const snapDelay = hiddenCardIds.get(card.id);
                   const isHidden = snapDelay !== undefined;
 
@@ -1010,16 +1083,28 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                         transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), filter 0.2s ease, z-index 0s',
                         animation: isHidden ? `snap-visible 700ms ${snapDelay}ms both` : undefined,
                         opacity: isColorPicking ? 0 : 1,
-                        filter: isColorPicking ? undefined : isMyTurn && !isSelected && (!anyPlayable || !playable) ? 'brightness(0.45)' : undefined,
+                        filter: isColorPicking ? undefined : !dealLightningOffset && isMyTurn && !isSelected && (!anyPlayable || !playable) ? 'brightness(0.45)' : undefined,
                         pointerEvents: isColorPicking ? 'none' : 'auto',
                       }}
-                      onClick={e => e.stopPropagation()}
+                      onPointerDown={e => {
+                        e.stopPropagation();
+                        if (playable) startDrag(e, () => { setSelected(null); humanPlay(card.id); }, rotation, true);
+                        else setSelected(null);
+                      }}
+                      onPointerMove={playable ? moveDrag : undefined}
+                      onPointerUp={playable ? endDrag : undefined}
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (didDragActionRef.current) { didDragActionRef.current = false; return; }
+                        if (didDragMoveRef.current) { didDragMoveRef.current = false; return; }
+                        if (playable) handleCardClick(card);
+                      }}
                     >
                       <Card
                         card={card}
                         playable={playable}
                         selected={isSelected}
-                        onClick={playable ? () => handleCardClick(card) : undefined}
+                        onClick={playable ? () => {} : undefined}
                       />
                     </div>
                   );
@@ -1064,6 +1149,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             card={pc.card}
             isCPU={pc.isCPU}
             isFromPicker={pc.isFromPicker}
+            isDrag={pc.isDrag}
             onDone={() => {
               setPlayingCards(prev => prev.filter(c => c.id !== pc.id));
               setHiddenDiscardId(null);
@@ -1085,8 +1171,9 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
         {/* Color picker overlay */}
         {state.phase === 'color-pick' && state.pendingCardId && (() => {
           const card = me.hand.find(c => c.id === state.pendingCardId)!;
-          const { tx, ty, trot } = getHumanCardTarget(me.hand, card.id, true);
-          return <ColorPicker onPick={handlePickColor} tx={tx} ty={ty} trot={trot} card={card} />;
+          const dragPos = dragPlayOverrideRef.current;
+          const { tx, ty, trot } = dragPos ?? getHumanCardTarget(me.hand, card.id, true);
+          return <ColorPicker onPick={handlePickColor} tx={tx} ty={ty} trot={trot} card={card} isDrag={!!dragPos} startScale={dragPos?.startScale} />;
         })()}
 
         {/* Game over overlay */}
