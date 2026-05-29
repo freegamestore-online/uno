@@ -217,6 +217,36 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
   );
 }
 
+function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 720);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      className="pointer-events-none"
+      style={{
+        position: 'absolute',
+        left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
+        top: '50%',
+        animation: 'init-card-arc 700ms linear both',
+        zIndex: 300,
+        perspective: '600px',
+      } as React.CSSProperties}
+    >
+      <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
+        <div style={{ backfaceVisibility: 'hidden' }}>
+          <Card card={{ id: 'init-back', color: 'wild', value: 'wild' }} faceDown />
+        </div>
+        <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+          <Card card={card} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
   const dur = isDragDraw ? 520 : 720;
   useEffect(() => {
@@ -435,7 +465,9 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
   // Direction indicator fade
   const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
-  const [dirOpacity, setDirOpacity] = useState(1);
+  const [dirOpacity, setDirOpacity] = useState(0);
+  const [initCardRevealed, setInitCardRevealed] = useState(false);
+  const [showInitAnim, setShowInitAnim] = useState(false);
 
   const deskRef = useRef<HTMLDivElement>(null);
   const [desk, setDesk] = useState({ w: 700, h: 340 });
@@ -670,7 +702,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                    !isLocked &&
                    activeSeat === 0 &&
                    !state.pendingAction &&
-                   !dealLightningOffset;
+                   !dealLightningOffset &&
+                   initCardRevealed;
   const top = topCard(state);
   const isTopFlying = hiddenDiscardId === top.id && state.discard.length > 1;
 
@@ -743,7 +776,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     const t2 = setTimeout(() => setDealLightningOffset({ offset: arrival,      length: 160, phase: 2, dur: travelDur  }), 536 + launchDur);
     const t3 = setTimeout(() => setDealLightningOffset({ offset: arrival,      length: 0,   phase: 3, dur: catchUpDur }), 536 + launchDur + travelDur);
     const t4 = setTimeout(() => setDealLightningOffset(null), 536 + launchDur + travelDur + catchUpDur + 50);
-    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
+    const t5 = setTimeout(() => setShowInitAnim(true), 536 + launchDur + travelDur + catchUpDur + 250);
+    return () => { clearTimeout(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1113,10 +1147,15 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
             {/* Discard pile (Single Flat Card) */}
             <div className="relative shrink-0" style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45' }}>
-              {state.discard.length > 0 && (
+              {state.discard.length > 0 && initCardRevealed ? (
                 <div className="absolute inset-0 pointer-events-none">
                   <Card card={visualTopCard} />
                 </div>
+              ) : (
+                <div
+                  className="absolute inset-0 rounded-lg border-[3px]"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)' }}
+                />
               )}
             </div>
           </div>
@@ -1233,6 +1272,18 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             }}
           />
         ))}
+
+        {/* Init card reveal (deck → discard, face-down → face-up flip) */}
+        {showInitAnim && (
+          <InitCardReveal
+            card={state.discard[0]!}
+            onDone={() => {
+              setShowInitAnim(false);
+              setInitCardRevealed(true);
+              setDirOpacity(1);
+            }}
+          />
+        )}
 
         {/* Playing card animations (hand → discard pile) */}
         {playingCards.map(pc => (

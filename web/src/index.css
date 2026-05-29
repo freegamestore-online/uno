@@ -253,6 +253,64 @@
   to   { opacity: 1; }
 }
 
+/* Init card arc: semicircle from draw pile top card to discard pile.
+   Parametric: x = 0.5d*(1-cosθ), y = -0.5d*sinθ, θ 0→π
+   d = var(--card-md-w) + 20px (pile separation).
+   The draw pile stacks 4 cards 2.5px apart, so the top card is 7.5px above
+   the container center. A linear correction fades -7.5px at t=0 to 0 at t=1
+   so the card starts from the top pile card and lands at the discard center. */
+@keyframes init-card-arc {
+  0% {
+    transform: translate(-50%, calc(-50% - 7.5px)) scale(1);
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+    animation-timing-function: ease-in;
+  }
+  16.7% {
+    transform: translate(
+      calc(-50% + 0.067 * (var(--card-md-w) + 20px)),
+      calc(-50% - 0.25  * (var(--card-md-w) + 20px) - 6.25px)
+    ) scale(1.2);
+    filter: drop-shadow(0 14px 22px rgba(0,0,0,0.5));
+    animation-timing-function: linear;
+  }
+  33.3% {
+    transform: translate(
+      calc(-50% + 0.25  * (var(--card-md-w) + 20px)),
+      calc(-50% - 0.433 * (var(--card-md-w) + 20px) - 5px)
+    ) scale(1.38);
+    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.6));
+    animation-timing-function: linear;
+  }
+  50% {
+    transform: translate(
+      calc(-50% + 0.5   * (var(--card-md-w) + 20px)),
+      calc(-50% - 0.5   * (var(--card-md-w) + 20px) - 3.75px)
+    ) scale(1.45);
+    filter: drop-shadow(0 24px 38px rgba(0,0,0,0.65));
+    animation-timing-function: linear;
+  }
+  66.7% {
+    transform: translate(
+      calc(-50% + 0.75  * (var(--card-md-w) + 20px)),
+      calc(-50% - 0.433 * (var(--card-md-w) + 20px) - 2.5px)
+    ) scale(1.38);
+    filter: drop-shadow(0 18px 28px rgba(0,0,0,0.55));
+    animation-timing-function: linear;
+  }
+  83.3% {
+    transform: translate(
+      calc(-50% + 0.933 * (var(--card-md-w) + 20px)),
+      calc(-50% - 0.25  * (var(--card-md-w) + 20px) - 1.25px)
+    ) scale(1.2);
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,0.4));
+    animation-timing-function: ease-out;
+  }
+  100% {
+    transform: translate(calc(-50% + (var(--card-md-w) + 20px)), -50%) scale(1);
+    filter: none;
+  }
+}
+
 /* Drag-draw: card goes straight from drag release position to hand slot, no arc */
 @keyframes card-draw-direct {
   0% {
