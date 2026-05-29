@@ -110,8 +110,9 @@ export function initGame(opponents: OpponentConfig[]): GameState {
     }
   }
 
+  const actionValues = new Set(['skip', 'reverse', 'draw2', 'wild', 'wild4']);
   let firstCard = deck.pop();
-  while (!firstCard || firstCard.value === 'wild4') {
+  while (!firstCard || actionValues.has(firstCard.value)) {
     if (firstCard) deck.unshift(firstCard);
     deck = shuffle(deck);
     firstCard = deck.pop();
