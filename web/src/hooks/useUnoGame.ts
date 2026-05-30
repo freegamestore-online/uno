@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CardColor,
+  UnoCard,
   OpponentConfig,
   initGame,
   playCard,
@@ -14,10 +15,11 @@ import type { GameState } from '../lib/uno';
 
 interface ExtState extends GameState {
   pendingCardId: string | null;
+  drawnCard: UnoCard | null;
 }
 
 function makeExt(s: GameState): ExtState {
-  return { ...s, pendingCardId: null };
+  return { ...s, pendingCardId: null, drawnCard: null };
 }
 
 export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: number | null) {
@@ -52,7 +54,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
         return { ...prev, phase: 'color-pick', pendingCardId: cardId };
       }
-      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null };
+      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -64,7 +66,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     setState(prev => {
       if (prev.phase !== 'color-pick' || !prev.pendingCardId) return prev;
       const next = playCard(prev, prev.pendingCardId, color);
-      return { ...next, pendingCardId: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
+      return { ...next, pendingCardId: null, drawnCard: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -75,12 +77,57 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     lockBoard();
     setState(prev => {
       if (prev.phase !== 'playing' || prev.players[prev.currentPlayer]?.id !== 0) return prev;
-      const s = drawCards(prev, 0, 1);
-      const hand = s.players[0]?.hand ?? [];
-      const drawn = hand[hand.length - 1];
-      const n = s.players.length;
-      const next = ((s.currentPlayer + s.direction) % n + n) % n;
-      return { ...s, currentPlayer: next, pendingCardId: null };
+      // Pop one card from deck without adding to hand yet
+      let { deck, discard } = prev;
+      if (deck.length === 0) {
+        const top = discard[discard.length - 1] as UnoCard;
+        deck = shuffle(discard.slice(0, -1).map(c => ({ ...c, chosenColor: undefined })));
+        discard = [top];
+      }
+      const drawn = deck[deck.length - 1];
+      if (!drawn) return prev;
+      deck = deck.slice(0, -1);
+      if (isPlayable(drawn, topCard(prev))) {
+        // Card stays in limbo until user decides; hand is NOT updated yet
+        return { ...prev, deck, discard, pendingCardId: null, drawnCard: drawn };
+      }
+      // Not playable: add to hand and advance turn
+      const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: [...p.hand, drawn] } : p);
+      const n = players.length;
+      const next = ((prev.currentPlayer + prev.direction) % n + n) % n;
+      return { ...prev, deck, discard, players, currentPlayer: next, pendingCardId: null, drawnCard: null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lockBoard]);
+
+  const humanPlayDrawn = useCallback((chosenColor?: CardColor) => {
+    if (!state.drawnCard) return;
+    lockBoard();
+    setState(prev => {
+      if (!prev.drawnCard) return prev;
+      const c = prev.drawnCard;
+      // Add to hand so playCard can find it, then play immediately
+      const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: [...p.hand, c] } : p);
+      const stateWithCard = { ...prev, players, drawnCard: null };
+      if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
+        return { ...stateWithCard, phase: 'color-pick', pendingCardId: c.id };
+      }
+      return { ...playCard(stateWithCard, c.id, chosenColor), pendingCardId: null, drawnCard: null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lockBoard]);
+
+  const humanKeepDrawn = useCallback(() => {
+    if (!state.drawnCard) return;
+    lockBoard();
+    setState(prev => {
+      if (!prev.drawnCard) return prev;
+      // Now add the card to hand and advance turn
+      const card = prev.drawnCard;
+      const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: [...p.hand, card] } : p);
+      const n = players.length;
+      const next = ((prev.currentPlayer + prev.direction) % n + n) % n;
+      return { ...prev, players, currentPlayer: next, pendingCardId: null, drawnCard: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -127,7 +174,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
         const t1 = setTimeout(() => {
           if (type === 'draw2' || type === 'wild4') {
             setState(prev => {
-              let s = { ...prev, players: prev.players.map(p => ({ ...p, hand: [...p.hand] })) };
+              let s: GameState = { ...prev, players: prev.players.map(p => ({ ...p, hand: [...p.hand] })) };
               if (type === 'draw2') s = drawCards(s, target, 2);
               if (type === 'wild4') s = drawCards(s, target, 4);
               return makeExt(s);
@@ -188,7 +235,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           const s = drawCards(prev, prev.currentPlayer, 1);
           const n = s.players.length;
           const next = ((s.currentPlayer + s.direction) % n + n) % n;
-          return { ...s, currentPlayer: next, pendingCardId: null };
+          return { ...s, currentPlayer: next, pendingCardId: null, drawnCard: null };
         }
 
         const chosenColor =
@@ -196,7 +243,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
             ? cpuChooseColor(cpu.hand.filter(c => c.id !== card.id))
             : undefined;
 
-        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null };
+        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null, drawnCard: null };
       });
     }, 500);
 
@@ -206,5 +253,26 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentPlayer, state.phase, isLocked, activeSeat, state.pendingAction]);
 
-  return { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, restart };
+  const debugDrawTest = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== 'playing' || prev.players[0] === undefined) return prev;
+      const top = topCard(prev);
+      const human = prev.players[0];
+      // Move all playable cards from human's hand into the deck, then surface one playable card to the top
+      const playableInHand = human.hand.filter(c => isPlayable(c, top));
+      const nonPlayable = human.hand.filter(c => !isPlayable(c, top));
+      let deck = [...prev.deck, ...playableInHand];
+      const playableIdx = deck.findIndex(c => isPlayable(c, top));
+      if (playableIdx === -1) return prev;
+      const [surfaced] = deck.splice(playableIdx, 1);
+      deck = [...deck, surfaced!]; // put playable card at top of draw pile
+      const players = prev.players.map((p, i) =>
+        i === 0 ? { ...p, hand: nonPlayable.length > 0 ? nonPlayable : [deck.pop()!] } : p
+      );
+      return { ...prev, deck, players, drawnCard: null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, restart };
 }
