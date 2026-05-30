@@ -4,6 +4,7 @@ import { useUnoGame } from '../hooks/useUnoGame';
 import { Card } from './Card';
 import { ColorPicker } from './ColorPicker';
 import { UnoCard, OpponentConfig, Player, topCard, isPlayable, effectiveColor, CardColor } from '../lib/uno';
+import { Z } from '../lib/zIndex';
 
 const COLOR_BG: Record<string, string> = {
   red: '#dc2626',
@@ -39,7 +40,7 @@ function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false):
 
   const sorted = sortHand(hand);
   const cardIdx = sorted.findIndex(c => c.id === cardId);
-  if (cardIdx === -1) return { tx: '36px', ty: '32vh', trot: '0deg', tzIndex: 200 };
+  if (cardIdx === -1) return { tx: '36px', ty: '32vh', trot: '0deg', tzIndex: Z.FLY_AIR };
 
   const total = sorted.length;
   const center = (total - 1) / 2;
@@ -76,7 +77,7 @@ function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false):
   return { tx, ty, trot, tzIndex: cardIdx };
 }
 
-interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; drawStartX?: string; drawStartY?: string; }
+interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; drawStartX?: string; drawStartY?: string; }
 
 // Calculates exact --tx/--ty for a CPU card slot using the player's physical position.
 function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, players: Player[]): { tx: string; ty: string; trot: string; tzIndex: number } {
@@ -142,12 +143,20 @@ function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, p
   };
 }
 
-function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, isDrag, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; onDone: () => void }) {
+function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, isDrag, isDecisionZone, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; isDecisionZone?: boolean; onDone: () => void }) {
+  const duration = isDecisionZone ? 480 : 720;
   useEffect(() => {
-    const t = setTimeout(onDone, 720);
+    const t = setTimeout(onDone, duration);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Decision zone: keep the same arc proportions as a regular hand play.
+  // Regular play at ty=200: 18% lands at 62% of distance (200*0.94-64=124), 74% at 9% (200*0.18-18=18).
+  // Scale those fractions to decision-zone ty so the arc shape is identical, just compressed.
+  const tyNum = isDecisionZone ? parseFloat(startY) : null;
+  const playLift   = tyNum != null ? `${Math.round(tyNum * 0.32)}px` : undefined;
+  const playLiftSm = tyNum != null ? `${Math.round(tyNum * 0.09)}px` : undefined;
 
   return (
     <div
@@ -162,8 +171,10 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
         '--startScale': isCPU ? 0.7 : startScale,
         '--endX': 'calc(var(--card-md-w) + 20px)',
         '--endY': '0px',
-        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : isDrag ? 'card-play-direct 420ms both' : 'card-play-arc 700ms linear both',
-        zIndex: 300,
+        '--play-lift': playLift,
+        '--play-lift-sm': playLiftSm,
+        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : isDrag ? `card-play-direct ${duration}ms both` : `card-play-arc ${duration}ms linear both`,
+        zIndex: Z.FLY_AIR,
         perspective: (isCPU || isFromPicker) ? '600px' : undefined,
       } as React.CSSProperties}
     >
@@ -231,7 +242,7 @@ function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => void })
         left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
         top: '50%',
         animation: 'init-card-arc 700ms linear both',
-        zIndex: 300,
+        zIndex: Z.FLY_AIR,
         perspective: '600px',
       } as React.CSSProperties}
     >
@@ -247,8 +258,8 @@ function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => void })
   );
 }
 
-function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
-  const dur = isDragDraw ? 520 : 720;
+function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, isKeepDraw, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
+  const dur = isKeepDraw ? 580 : isDragDraw ? 520 : 720;
   useEffect(() => {
     const t = setTimeout(onDone, delay + dur);
     return () => clearTimeout(t);
@@ -263,43 +274,76 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, 
         position: 'absolute',
         left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
         top: '50%',
+        zIndex: Z.FLY_AIR,
         '--tx': tx,
         '--ty': ty,
         '--trot': trot,
         '--tzIndex': tzIndex,
         '--endScale': size === 'sm' ? 0.7 : 1,
-        '--startX': isDragDraw ? drawStartX : undefined,
-        '--startY': isDragDraw ? drawStartY : undefined,
-        opacity: isDragDraw ? undefined : 0,
-        animation: isDragDraw
+        '--startX': (isDragDraw || isKeepDraw) ? drawStartX : undefined,
+        '--startY': (isDragDraw || isKeepDraw) ? drawStartY : undefined,
+        opacity: (isDragDraw || isKeepDraw) ? undefined : 0,
+        animation: isKeepDraw
+          ? `card-keep-arc ${dur}ms linear ${delay}ms both`
+          : isDragDraw
           ? `card-draw-direct 500ms ${delay}ms both`
           : `card-draw-arc 700ms linear ${delay}ms forwards`,
         perspective: card ? '600px' : undefined,
       } as React.CSSProperties}
     >
-      {/* Inner div: owns the flip (rotateY). Separated so preserve-3d isn't killed by the arc animation. */}
-      <div style={{
-        transformStyle: card ? 'preserve-3d' : undefined,
-        animation: card ? `card-flip ${isDragDraw ? 500 : 700}ms ease-in-out ${delay}ms both` : undefined,
-      }}>
-        {/* Back face — hidden after 90° */}
-        <div style={{ backfaceVisibility: card ? 'hidden' : undefined }}>
-          <Card card={{ id: 'flying-back', color: 'wild', value: 'wild' }} faceDown size="md" thick={size === 'sm'} />
-        </div>
-        {/* Front face — pre-rotated so it faces viewer at 180° */}
-        {card && (
-          <div style={{
-            position: 'absolute',
-            top: 0, left: 0,
-            backfaceVisibility: 'hidden',
-            transform: 'rotateY(180deg)',
-          }}>
-            <Card card={card} size="md" thick={size === 'sm'} />
+      {isKeepDraw && card ? (
+        /* Card is already face-up at decision zone — no flip needed */
+        <Card card={card} size="md" />
+      ) : (
+        /* Inner div: owns the flip (rotateY). Separated so preserve-3d isn't killed by the arc animation. */
+        <div style={{
+          transformStyle: card ? 'preserve-3d' : undefined,
+          animation: card ? `card-flip ${isDragDraw ? 500 : 700}ms ease-in-out ${delay}ms both` : undefined,
+        }}>
+          {/* Back face — hidden after 90° */}
+          <div style={{ backfaceVisibility: card ? 'hidden' : undefined }}>
+            <Card card={{ id: 'flying-back', color: 'wild', value: 'wild' }} faceDown size="md" thick={size === 'sm'} />
           </div>
-        )}
-      </div>
+          {/* Front face — pre-rotated so it faces viewer at 180° */}
+          {card && (
+            <div style={{
+              position: 'absolute',
+              top: 0, left: 0,
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)',
+            }}>
+              <Card card={card} size="md" thick={size === 'sm'} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function getDecisionZonePos() {
+  const board = document.getElementById('board-container');
+  const pilesRow = document.getElementById('piles-row');
+  const youTag = document.getElementById('you-nametag');
+  const vw = board ? board.clientWidth : window.innerWidth;
+  const vh = board ? board.clientHeight : window.innerHeight;
+  const cardW = Math.min(52, Math.max(40, vw * 0.1));
+
+  let cssTop = vh * 0.65; // fallback
+  if (board && pilesRow && youTag) {
+    const br = board.getBoundingClientRect();
+    const pr = pilesRow.getBoundingClientRect();
+    const yr = youTag.getBoundingClientRect();
+    cssTop = ((pr.bottom - br.top) + (yr.top - br.top)) / 2;
+  }
+
+  return {
+    tx: `${Math.round(cardW / 2 + 10)}px`,
+    ty: `${Math.round(cssTop - vh / 2)}px`,
+    trot: '0deg' as const,
+    startScale: 1 as const,
+    cssTop: Math.round(cssTop),
+  };
 }
 
 interface Props {
@@ -310,9 +354,15 @@ interface Props {
 }
 
 export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Props) {
-  // activeSeat must be declared before useUnoGame so it can be passed in
+  // activeSeat and initCardRevealed must be declared before useUnoGame so they can be passed in
   const [activeSeat, setActiveSeat] = useState<number | null>(0);
-  const { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, restart } = useUnoGame(opponents, activeSeat);
+  const [initCardRevealed, setInitCardRevealed] = useState(false);
+  const { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, restart } = useUnoGame(opponents, initCardRevealed ? activeSeat : null);
+  const [drawnCardLanded, setDrawnCardLanded] = useState(false);
+  const [drawnCardCssTop, setDrawnCardCssTop] = useState(0);
+  const drawnCardFlyAnimIdRef = useRef<string | null>(null);
+  const drawnCardKeptRef = useRef<string | null>(null);
+  const drawnCardPlayedRef = useRef<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [flyingCards, setFlyingCards] = useState<FlyAnim[]>([]);
   // cardId → animation delay ms; card stays invisible until its flying card lands (humans + CPUs)
@@ -320,7 +370,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const knownCardIdsRef = useRef<Set<string>>(new Set());
   const prevHandLengthsRef = useRef<number[]>([]);
   // Play animation: card flies from player's slot to discard pile
-  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean }>>([]);
+  const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; isDecisionZone?: boolean }>>([]);
   const [hiddenDiscardId, setHiddenDiscardId] = useState<string | null>(null);
   const prevDiscardIdsRef = useRef<Set<string>>(new Set());
   const prevPlayersRef = useRef<import('../lib/uno').Player[]>([]);
@@ -346,7 +396,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     const baseTransform = el.style.transform;
     const baseTransformNoRot = baseTransform.replace(/\s*rotate\([^)]*\)/, '');
     const baseZIndex = el.style.zIndex;
-    const liftedZIndex = '9999';
+    const liftedZIndex = String(Z.DRAG_CARD);
 
     if (invertY) {
       el.style.transition = 'transform 180ms ease-out, filter 200ms ease';
@@ -354,8 +404,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
       longPressTimerRef.current = setTimeout(() => {
         longPressTimerRef.current = null;
         if (dragRef.current) {
-          if (dragRef.current.parent) dragRef.current.parent.style.zIndex = '50';
-          if (deskRef.current) deskRef.current.style.zIndex = '50';
+          if (dragRef.current.parent) dragRef.current.parent.style.zIndex = String(Z.DRAG_PARENT);
+          if (deskRef.current) deskRef.current.style.zIndex = String(Z.DRAG_DESK);
           dragRef.current.el.style.zIndex = dragRef.current.liftedZIndex;
           dragRef.current.el.style.transform = `${capturedNoRot} scale(1.5)`;
         }
@@ -376,8 +426,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
     d.el.style.zIndex = d.liftedZIndex;
     if (d.invertY) {
-      if (d.parent) d.parent.style.zIndex = '50';
-      if (deskRef.current) deskRef.current.style.zIndex = '50';
+      if (d.parent) d.parent.style.zIndex = String(Z.DRAG_PARENT);
+      if (deskRef.current) deskRef.current.style.zIndex = String(Z.DRAG_DESK);
     }
 
     if (d.invertY) {
@@ -409,10 +459,10 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
     const triggered = d.invertY ? dy >= DRAG_THRESHOLD : dy <= -DRAG_THRESHOLD;
 
-    if (d.parent) d.parent.style.zIndex = '';
-    if (deskRef.current) deskRef.current.style.zIndex = '';
-
     if (triggered) {
+      if (d.parent) d.parent.style.zIndex = '';
+      if (deskRef.current) deskRef.current.style.zIndex = '';
+
       d.el.style.zIndex = d.baseZIndex;
       const r2 = d.el.getBoundingClientRect();
       const relCX = r2.left + r2.width / 2;
@@ -460,13 +510,21 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
       void d.el.offsetHeight;
       d.el.style.transition = 'transform 0.35s cubic-bezier(0.34,1.2,0.64,1), filter 0.2s ease';
       d.el.style.transform = d.baseTransform;
+
+      // Wait for the 350ms return-flight to finish before dropping elevation,
+      // otherwise the card slides under the discard pile mid-animation.
+      const parent = d.parent;
+      const desk = deskRef.current;
+      setTimeout(() => {
+        if (parent) parent.style.zIndex = '';
+        if (desk) desk.style.zIndex = '';
+      }, 350);
     }
   }
 
   // Direction indicator fade
   const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
   const [dirOpacity, setDirOpacity] = useState(0);
-  const [initCardRevealed, setInitCardRevealed] = useState(false);
   const [showInitAnim, setShowInitAnim] = useState(false);
 
   const deskRef = useRef<HTMLDivElement>(null);
@@ -567,6 +625,17 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     state.players.forEach((player, playerIdx) => {
       const playerNewIds = newIds.filter(id => player.hand.some(c => c.id === id));
       playerNewIds.forEach((cardId, j) => {
+        // Card kept from decision zone: skip FlyAnim, let it appear immediately in the fan
+        if (drawnCardKeptRef.current === cardId) {
+          drawnCardKeptRef.current = null;
+          return;
+        }
+        // Wild drawn card added to hand for color-pick: isColorPicking handles opacity, skip FlyAnim
+        if (drawnCardPlayedRef.current === cardId) {
+          drawnCardPlayedRef.current = null;
+          return;
+        }
+
         const delay = j * 130;
         let tx: string, ty: string, size: 'sm' | 'md';
         const actualCard = player.hand.find(c => c.id === cardId) ?? null;
@@ -577,13 +646,13 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
         if (playerIdx === 0) {
           ({ tx, ty, trot, tzIndex } = getHumanCardTarget(player.hand, cardId));
-          size = 'md';
           if (j === 0 && dragDrawOverrideRef.current) {
             isDragDraw = true;
             drawStartX = dragDrawOverrideRef.current.startX;
             drawStartY = dragDrawOverrideRef.current.startY;
             dragDrawOverrideRef.current = null;
           }
+          size = 'md';
         } else {
           const cIdx = player.hand.findIndex(c => c.id === cardId);
           ({ tx, ty, trot, tzIndex } = getCPUCardTarget(player.hand, playerIdx, cIdx, state.players));
@@ -703,6 +772,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                    activeSeat === 0 &&
                    !state.pendingAction &&
                    !dealLightningOffset &&
+                   !state.drawnCard &&
                    initCardRevealed;
   const top = topCard(state);
   const isTopFlying = hiddenDiscardId === top.id && state.discard.length > 1;
@@ -804,6 +874,108 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     } else {
       humanPickColor(color);
     }
+  }
+
+  // Reset landing flag whenever drawnCard changes (guards against stale true from a previous round)
+  useEffect(() => {
+    setDrawnCardLanded(false);
+    if (!state.drawnCard && drawnCardFlyAnimIdRef.current) {
+      removeFlyAnim(drawnCardFlyAnimIdRef.current);
+      drawnCardFlyAnimIdRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.drawnCard]);
+
+  // When a playable card is drawn, create its FlyAnim from deck to the decision zone.
+  // The card is NOT in any player's hand yet — it lives only in state.drawnCard.
+  // Always use card-draw-arc (deck base position): endDrag snaps the deck card back to
+  // its base position before opacity 0, so the drag release position is visually stale.
+  useLayoutEffect(() => {
+    if (!state.drawnCard) return;
+    const dz = getDecisionZonePos();
+    const { id: cardId } = state.drawnCard;
+
+    // Capture drag coords before nulling so playable drag-draws fly from the drop point.
+    const dragDraw = dragDrawOverrideRef.current;
+    dragDrawOverrideRef.current = null;
+
+    setFlyingCards(prev => [...prev, {
+      id: `drawn-${Date.now()}`,
+      cardId,
+      playerId: 0,
+      delay: 0,
+      tx: dz.tx,
+      ty: dz.ty,
+      trot: '0deg',
+      tzIndex: Z.FLY_AIR,
+      size: 'md' as const,
+      card: state.drawnCard,
+      isDragDraw: !!dragDraw,
+      drawStartX: dragDraw?.startX,
+      drawStartY: dragDraw?.startY,
+    }]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.drawnCard?.id]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 't' || e.key === 'T') debugDrawTest();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [debugDrawTest]);
+
+  function handlePlayDrawn() {
+    if (!state.drawnCard) return;
+    const card = state.drawnCard;
+    setDrawnCardLanded(false);
+    if (drawnCardFlyAnimIdRef.current) { removeFlyAnim(drawnCardFlyAnimIdRef.current); drawnCardFlyAnimIdRef.current = null; }
+    const dz = getDecisionZonePos();
+    if (card.value === 'wild' || card.value === 'wild4') {
+      // Card is briefly added to hand for color-pick; suppress the FlyAnim that would be triggered
+      drawnCardPlayedRef.current = card.id;
+      dragPlayOverrideRef.current = dz;
+    } else {
+      // prevPlayersRef never had this card, so create PlayingCardAnim manually
+      setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx: dz.tx, ty: dz.ty, trot: dz.trot, startScale: dz.startScale, card, isCPU: false, isFromPicker: false, isDrag: false, isDecisionZone: true }]);
+      setHiddenDiscardId(card.id);
+    }
+    humanPlayDrawn();
+  }
+
+  function handleKeepDrawn() {
+    if (!state.drawnCard) return;
+    const card = state.drawnCard;
+    const dz = getDecisionZonePos();
+
+    // Predict the fan target: card will be appended to hand after humanKeepDrawn
+    const predictedHand = [...me.hand, card];
+    const { tx: fanTx, ty: fanTy, trot: fanTrot, tzIndex: fanTz } = getHumanCardTarget(predictedHand, card.id);
+
+    // Suppress the auto-FlyAnim from useLayoutEffect (we're creating our own)
+    drawnCardKeptRef.current = card.id;
+    setDrawnCardLanded(false);
+    if (drawnCardFlyAnimIdRef.current) { removeFlyAnim(drawnCardFlyAnimIdRef.current); drawnCardFlyAnimIdRef.current = null; }
+
+    // Hide card in hand until FlyAnim completes
+    setHiddenCardIds(prev => new Map([...prev, [card.id, 0]]));
+    setFlyingCards(prev => [...prev, {
+      id: `keep-${Date.now()}`,
+      cardId: card.id,
+      playerId: 0,
+      delay: 0,
+      tx: fanTx,
+      ty: fanTy,
+      trot: fanTrot,
+      tzIndex: fanTz,
+      size: 'md' as const,
+      card,
+      isKeepDraw: true,
+      drawStartX: dz.tx,
+      drawStartY: dz.ty,
+    }]);
+
+    humanKeepDrawn();
   }
 
   const cpuPlayers = state.players.slice(1);
@@ -1036,7 +1208,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
               className="absolute inset-0 w-full h-full pointer-events-none"
               viewBox={`0 0 ${deskW} ${deskH}`}
               preserveAspectRatio="none"
-              style={{ overflow: 'visible', zIndex: 10 }}
+              style={{ overflow: 'visible', zIndex: Z.UI_CHROME }}
             >
               <defs>
                 <filter id="deal-lightning-noise" x="-20%" y="-20%" width="140%" height="140%">
@@ -1094,6 +1266,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             return (
               <div
                 key={p.id}
+                id={p.id === 0 ? 'you-nametag' : undefined}
                 className={`absolute ${posClass} px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-sans font-bold z-0`}
                 style={{
                   backgroundColor: isActive && !isPunished ? '#ffffff' : 'rgba(0,0,0,0.25)',
@@ -1111,9 +1284,9 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           })}
 
           {/* Cards row */}
-          <div className="flex gap-5 items-center relative">
+          <div id="piles-row" className="flex gap-5 items-center relative">
             {/* Draw pile (Static 3D Stack) */}
-            <div className="relative shrink-0" style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', animation: isMyTurn && !me.hand.some(c => isPlayable(c, top)) ? 'draw-pile-pulse 1.4s ease-in-out infinite' : undefined }}>
+            <div className="relative shrink-0" style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', animation: isMyTurn && !me.hand.some(c => isPlayable(c, top)) ? 'draw-pile-pulse 1.4s ease-in-out infinite' : undefined, filter: state.drawnCard ? 'brightness(0.45)' : undefined }}>
               {Array.from({ length: 4 }).map((_, i, arr) => {
                 const isTop = i === arr.length - 1;
                 return (
@@ -1215,7 +1388,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
                         transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1), filter 0.2s ease, z-index 0s',
                         animation: isHidden ? `snap-visible 700ms ${snapDelay}ms both` : undefined,
                         opacity: isColorPicking ? 0 : 1,
-                        filter: isColorPicking ? undefined : !dealLightningOffset && isMyTurn && !isSelected && (!anyPlayable || !playable) ? 'brightness(0.45)' : undefined,
+                        filter: isColorPicking ? undefined : (state.drawnCard || (!dealLightningOffset && isMyTurn && !isSelected && (!anyPlayable || !playable))) ? 'brightness(0.45)' : undefined,
                         pointerEvents: isColorPicking ? 'none' : 'auto',
                       }}
                       onPointerDown={e => {
@@ -1259,16 +1432,24 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             size={fc.size}
             card={fc.card}
             isDragDraw={fc.isDragDraw}
+            isKeepDraw={fc.isKeepDraw}
             drawStartX={fc.drawStartX}
             drawStartY={fc.drawStartY}
             onDone={() => {
-              removeFlyAnim(fc.id);
-              setHiddenCardIds(prev => {
-                if (!prev.has(fc.cardId)) return prev;
-                const next = new Map(prev);
-                next.delete(fc.cardId);
-                return next;
-              });
+              if (state.drawnCard?.id === fc.cardId) {
+                // Keep the FlyAnim alive so card stays visible; record id for removal on choice
+                drawnCardFlyAnimIdRef.current = fc.id;
+                setDrawnCardCssTop(getDecisionZonePos().cssTop);
+                setDrawnCardLanded(true);
+              } else {
+                removeFlyAnim(fc.id);
+                setHiddenCardIds(prev => {
+                  if (!prev.has(fc.cardId)) return prev;
+                  const next = new Map(prev);
+                  next.delete(fc.cardId);
+                  return next;
+                });
+              }
             }}
           />
         ))}
@@ -1297,6 +1478,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             isCPU={pc.isCPU}
             isFromPicker={pc.isFromPicker}
             isDrag={pc.isDrag}
+            isDecisionZone={pc.isDecisionZone}
             onDone={() => {
               setPlayingCards(prev => prev.filter(c => c.id !== pc.id));
               setHiddenDiscardId(null);
@@ -1304,12 +1486,55 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           />
         ))}
 
+        {/* DEV: draw-test button */}
+        <button
+          onClick={debugDrawTest}
+          className="absolute font-sans font-bold cursor-pointer"
+          style={{ top: 8, right: 8, zIndex: Z.DEBUG, background: 'rgba(255,0,255,0.18)', border: '1px solid rgba(255,0,255,0.5)', borderRadius: 6, color: 'rgba(255,0,255,0.9)', fontSize: 11, padding: '3px 8px' }}
+        >
+          🧪 T
+        </button>
+
+        {/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
+        {state.drawnCard && drawnCardLanded && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: 0, right: 0,
+              top: `${drawnCardCssTop}px`,
+              transform: 'translateY(-50%)',
+              zIndex: Z.DECISION,
+              display: 'grid',
+              gridTemplateColumns: `1fr var(--card-md-w) 1fr`,
+              alignItems: 'center',
+              columnGap: 'clamp(12px, 3vw, 20px)',
+              padding: '0 clamp(16px, 5vw, 32px)',
+            }}
+          >
+            <button
+              onClick={handlePlayDrawn}
+              className="pointer-events-auto cursor-pointer font-sans font-semibold transition-opacity duration-150 hover:opacity-60"
+              style={{ justifySelf: 'end', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', animation: 'slide-in-right 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+            >
+              Play
+            </button>
+            <div />
+            <button
+              onClick={handleKeepDrawn}
+              className="pointer-events-auto cursor-pointer font-sans font-semibold transition-opacity duration-150 hover:opacity-60"
+              style={{ justifySelf: 'start', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', animation: 'slide-in-left 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+            >
+              Draw
+            </button>
+          </div>
+        )}
+
         {/* Color picker dim background — lives in GameBoard so it outlasts ColorPicker unmount */}
         {pickerBg && (
           <div
             className="absolute inset-0 bg-black/60 pointer-events-none"
             style={{
-              zIndex: 49,
+              zIndex: Z.COLOR_DIM,
               animation: pickerBg === 'in' ? 'fade-in 700ms ease-out forwards' : 'fade-out 600ms ease-out forwards',
             }}
           />
@@ -1325,7 +1550,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
         {/* Game over overlay */}
         {state.phase === 'game-over' && (
-          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-5 z-50">
+          <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-5" style={{ zIndex: Z.MODAL }}>
             <p className="text-white text-[32px] font-serif font-extrabold m-0">
               {state.winner === 0 ? 'You Win!' : `${state.players[state.winner ?? 0]?.name ?? 'CPU'} Wins!`}
             </p>
