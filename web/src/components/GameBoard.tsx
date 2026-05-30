@@ -144,7 +144,7 @@ function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, p
 }
 
 function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, isDrag, isDecisionZone, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; isDecisionZone?: boolean; onDone: () => void }) {
-  const duration = isDecisionZone ? 480 : 720;
+  const duration = isDrag ? 480 : isDecisionZone ? 480 : 720;
   useEffect(() => {
     const t = setTimeout(onDone, duration);
     return () => clearTimeout(t);
@@ -357,7 +357,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   // activeSeat and initCardRevealed must be declared before useUnoGame so they can be passed in
   const [activeSeat, setActiveSeat] = useState<number | null>(0);
   const [initCardRevealed, setInitCardRevealed] = useState(false);
-  const { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, restart } = useUnoGame(opponents, initCardRevealed ? activeSeat : null);
+  const { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, restart } = useUnoGame(opponents, initCardRevealed ? activeSeat : null);
   const [drawnCardLanded, setDrawnCardLanded] = useState(false);
   const [drawnCardCssTop, setDrawnCardCssTop] = useState(0);
   const drawnCardFlyAnimIdRef = useRef<string | null>(null);
@@ -916,14 +916,6 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     }]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.drawnCard?.id]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 't' || e.key === 'T') debugDrawTest();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [debugDrawTest]);
 
   function handlePlayDrawn() {
     if (!state.drawnCard) return;
@@ -1486,16 +1478,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           />
         ))}
 
-        {/* DEV: draw-test button */}
-        <button
-          onClick={debugDrawTest}
-          className="absolute font-sans font-bold cursor-pointer"
-          style={{ top: 8, right: 8, zIndex: Z.DEBUG, background: 'rgba(255,0,255,0.18)', border: '1px solid rgba(255,0,255,0.5)', borderRadius: 6, color: 'rgba(255,0,255,0.9)', fontSize: 11, padding: '3px 8px' }}
-        >
-          🧪 T
-        </button>
-
-        {/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
+{/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
         {state.drawnCard && drawnCardLanded && (
           <div
             className="absolute pointer-events-none"
