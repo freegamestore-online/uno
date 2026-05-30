@@ -122,7 +122,7 @@ export function initGame(opponents: OpponentConfig[]): GameState {
     deck,
     discard: [firstCard],
     players,
-    currentPlayer: 0,
+    currentPlayer: Math.floor(Math.random() * players.length),
     direction: 1,
     phase: 'playing',
     winner: null,

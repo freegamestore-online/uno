@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { CardColor, UnoCard } from '../lib/uno';
 import { Card } from './Card';
+import { Z } from '../lib/zIndex';
 
 const SECTORS = [
   { color: 'blue'   as CardColor, fill: '#2563eb', points: '0,0 74.92,-185.44 200,-200 200,0' },
@@ -24,7 +25,7 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
   const startPos = useRef({ tx, ty, trot, isDrag, startScale });
 
   return (
-    <div className="absolute inset-0 z-50 pointer-events-auto overflow-hidden">
+    <div className="absolute inset-0 pointer-events-auto overflow-hidden" style={{ zIndex: Z.MODAL }}>
       <div
         className="absolute"
         style={{

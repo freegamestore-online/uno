@@ -1,9 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { GameShell, GameTopbar, GameButton } from '@freegamestore/games';
 import { GameBoard } from './components/GameBoard';
 import { OpponentConfig, Difficulty, SeatPosition } from './lib/uno';
 
-type Screen = 'menu' | 'setup' | 'playing';
+type Screen = 'menu' | 'setup' | 'about' | 'playing';
 
 type SeatType = 'Alpha' | 'Beta' | 'Gamma';
 type SeatChoice = SeatType | 'None';
@@ -125,6 +125,30 @@ function SeatSelector({ value, onChange, order }: {
   );
 }
 
+function CounterSlot() {
+  const [count, setCount] = useState(1);
+  useEffect(() => {
+    const id = setInterval(() => setCount(c => c + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const digits = String(count).split('');
+  return (
+    <>
+      {digits.map((d, i) => (
+        <span key={`pos-${i}`} style={{ display: 'inline-block', clipPath: 'inset(0 0 0.2em 0)' }}>
+          <span
+            key={`${i}-${d}`}
+            style={{ display: 'inline-block', animation: 'num-slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both' }}
+          >
+            {d}
+          </span>
+        </span>
+      ))}
+      {' '}{count === 1 ? 'game' : 'games'}
+    </>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
   const [topSeat, setTopSeat] = useState<SeatType>('Beta');
@@ -215,7 +239,41 @@ export default function App() {
           animation: isExiting ? 'screen-exit 0.35s ease forwards' : undefined,
         }}
       >
-        {screen === 'setup' ? (
+        {screen === 'about' ? (
+          <>
+            <h2 className="font-serif font-extrabold text-white m-0" style={{ fontSize: 'clamp(26px, 6vw, 34px)', animation: 'fade-up 0.4s ease both', animationDelay: '0.05s' }}>About</h2>
+
+            <p className="font-sans text-white/55 text-center m-0 leading-relaxed max-w-[300px]" style={{ fontSize: 'clamp(13px, 3.5vw, 15px)', animation: 'fade-up 0.4s ease both', animationDelay: '0.1s' }}>
+              "Just one more round."<br />(Said <CounterSlot /> ago.)
+            </p>
+
+            <a href="https://www.linkedin.com/in/dawson-huang/" className="flex items-center gap-2 no-underline group" style={{ animation: 'fade-up 0.4s ease both', animationDelay: '0.15s' }}>
+              <span className="text-white/40 font-sans text-[13px]">Connect with me:</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0" style={{ opacity: 0.5 }}>
+                <rect width="16" height="16" rx="3" fill="white" fillOpacity="0.2" />
+                <text x="8" y="12" textAnchor="middle" fontFamily="var(--font-sans), sans-serif" fontWeight="800" fontSize="9" fill="white">in</text>
+              </svg>
+              <span className="text-white/65 font-sans text-[13px] group-hover:text-white transition-colors">Dawson Huang</span>
+            </a>
+
+            <a href="https://freegamestore.online" className="text-white/30 font-sans text-[12px] no-underline text-center hover:text-white/55 transition-colors" style={{ animation: 'fade-up 0.4s ease both', animationDelay: '0.2s' }}>
+              Proudly a member of FreeGameStore
+            </a>
+
+            <button
+              onClick={() => transitionTo('menu')}
+              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60"
+              style={{ background: 'none', border: 'none', padding: 4, animation: 'fade-up 0.4s ease both', animationDelay: '0.25s' }}
+              aria-label="Close"
+            >
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+                <circle cx="13" cy="13" r="12" stroke="white" strokeWidth="1.5" />
+                <line x1="9" y1="9" x2="17" y2="17" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="17" y1="9" x2="9" y2="17" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </>
+        ) : screen === 'setup' ? (
           <>
             {/* Title */}
             <div className="text-center relative" style={{ animation: 'fade-up 0.5s ease both', animationDelay: '0.05s' }}>
@@ -299,7 +357,7 @@ export default function App() {
                   onClick={mode.locked ? undefined : handleVsComputer}
                   disabled={mode.locked}
                   className="flex-1 flex flex-col items-center justify-between relative overflow-hidden"
-                  style={{ minHeight: 200, borderRadius: 16, background: mode.bg, border: 'none', cursor: mode.locked ? 'default' : 'pointer', padding: '24px 12px 20px', opacity: mode.locked ? 0.5 : 1, filter: mode.locked ? 'grayscale(1)' : 'none', boxShadow: mode.locked ? 'none' : '0 6px 24px rgba(0,0,0,0.3)', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease', animation: `${mode.locked ? 'menu-card-in-locked' : 'menu-card-in'} 0.55s cubic-bezier(0.34,1.56,0.64,1) both`, animationDelay: `${0.1 + i * 0.07}s` }}
+                  style={{ minHeight: 200, borderRadius: 16, background: mode.bg, border: 'none', cursor: mode.locked ? 'default' : 'pointer', padding: '24px 12px 20px', filter: mode.locked ? 'grayscale(1) brightness(0.5)' : 'none', boxShadow: mode.locked ? 'none' : '0 6px 24px rgba(0,0,0,0.3)', transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease', animation: `${mode.locked ? 'menu-card-in-locked' : 'menu-card-in'} 0.55s cubic-bezier(0.34,1.56,0.64,1) both`, animationDelay: `${0.1 + i * 0.07}s` }}
                   onMouseEnter={e => { if (!mode.locked) { e.currentTarget.style.transform = 'translateY(-6px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 14px 36px rgba(0,0,0,0.4)'; } }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = mode.locked ? 'none' : '0 6px 24px rgba(0,0,0,0.3)'; }}
                   onAnimationEnd={e => { e.currentTarget.style.animation = 'none'; }}
@@ -315,6 +373,19 @@ export default function App() {
                 </button>
               ))}
             </div>
+
+            {/* Info button */}
+            <button
+              onClick={() => transitionTo('about')}
+              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60"
+              style={{ background: 'none', border: 'none', padding: 4, animation: 'menu-card-in 0.5s ease both', animationDelay: '0.35s' }}
+              aria-label="About"
+            >
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
+                <text x="11" y="15.5" textAnchor="middle" fontFamily="var(--font-sans), sans-serif" fontWeight="700" fontSize="12" fill="rgba(255,255,255,0.7)">i</text>
+              </svg>
+            </button>
 
           </>
         )}
