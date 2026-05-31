@@ -3,6 +3,9 @@ import { GameButton } from '@freegamestore/games';
 import { useUnoGame } from '../hooks/useUnoGame';
 import { Card } from './Card';
 import { ColorPicker } from './ColorPicker';
+import { PlayingCardAnim, InitCardReveal, FlyingCardAnim } from './CardAnimations';
+import { FlyAnim, sortHand, getHumanCardTarget, getCPUCardTarget, getDecisionZonePos } from '../lib/boardGeometry';
+import { useDrag } from '../hooks/useDrag';
 import { UnoCard, OpponentConfig, Player, topCard, isPlayable, effectiveColor, CardColor } from '../lib/uno';
 import { Z } from '../lib/zIndex';
 
@@ -14,341 +17,7 @@ const COLOR_BG: Record<string, string> = {
   wild: '#7c3aed',
 };
 
-// Shared sort so render and target-calculation stay in sync
-function sortHand(hand: UnoCard[]): UnoCard[] {
-  const colorOrder: Record<string, number> = { red: 0, green: 1, blue: 2, yellow: 3, wild: 4 };
-  return [...hand].sort((a, b) => {
-    const aWild = a.value === 'wild' || a.value === 'wild4';
-    const bWild = b.value === 'wild' || b.value === 'wild4';
-    if (aWild !== bWild) return aWild ? -1 : 1;
-    if (aWild && bWild) return (a.value === 'wild4' ? 0 : 1) - (b.value === 'wild4' ? 0 : 1);
-    const colorDiff = (colorOrder[a.color] ?? 4) - (colorOrder[b.color] ?? 4);
-    if (colorDiff !== 0) return colorDiff;
-    const specialOrder: Record<string, number> = { reverse: 0, skip: 1, draw2: 2 };
-    const aRank = specialOrder[a.value] ?? (3 + Number(a.value));
-    const bRank = specialOrder[b.value] ?? (3 + Number(b.value));
-    return aRank - bRank;
-  });
-}
 
-// Calculates exact --tx/--ty offset from the flying card's absolute anchor to the real slot.
-// Uses board container dimensions so the topbar height is properly excluded.
-function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false): { tx: string; ty: string; trot: string; tzIndex: number } {
-  const board = document.getElementById('board-container');
-  const vw = board ? board.clientWidth : window.innerWidth;
-  const vh = board ? board.clientHeight : window.innerHeight;
-
-  const sorted = sortHand(hand);
-  const cardIdx = sorted.findIndex(c => c.id === cardId);
-  if (cardIdx === -1) return { tx: '36px', ty: '32vh', trot: '0deg', tzIndex: Z.FLY_AIR };
-
-  const total = sorted.length;
-  const center = (total - 1) / 2;
-  const offset = cardIdx - center;
-
-  const maxStep = Math.min(40, vw * 0.085);
-  const xStep = Math.min(maxStep, Math.max(16, (vw * 0.65) / Math.max(total - 1, 1)));
-  const yArcMult = total <= 1 ? 0 : Math.max(0.4, 3.0 / Math.max(1, total * 0.2));
-  const handH = Math.min(148, Math.max(110, vh * 0.19));
-  const maxYArc = center * center * yArcMult;
-  const anchorBottom = Math.min(12 + maxYArc, handH * 0.82);
-
-  const degsEach = total <= 1 ? 0 : Math.min(6, 40 / (total - 1));
-  const rotationDeg = offset * degsEach;
-  const rotationRad = (rotationDeg * Math.PI) / 180;
-
-  const x = offset * xStep;
-  const yArc = offset * offset * yArcMult;
-  const cardW = Math.min(52, Math.max(40, vw * 0.1));
-  const cardH = cardW * 1.45;
-
-  const bottomX = vw / 2 + x;
-  const lift = isPlaying ? -30 : 0;
-  const bottomY = vh - anchorBottom + yArc + lift;
-
-  const cardCenterX = bottomX + (cardH / 2) * Math.sin(rotationRad);
-  const cardCenterY = bottomY - (cardH / 2) * Math.cos(rotationRad);
-
-  const startX = vw / 2 - (cardW / 2 + 10);
-  const tx = `${Math.round(cardCenterX - startX)}px`;
-  const ty = `${Math.round(cardCenterY - vh / 2)}px`;
-  const trot = `${rotationDeg}deg`;
-
-  return { tx, ty, trot, tzIndex: cardIdx };
-}
-
-interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; isDragKeep?: boolean; drawStartX?: string; drawStartY?: string; }
-
-// Calculates exact --tx/--ty for a CPU card slot using the player's physical position.
-function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, players: Player[]): { tx: string; ty: string; trot: string; tzIndex: number } {
-  const board = document.getElementById('board-container');
-  const vw = board ? board.clientWidth : window.innerWidth;
-  const vh = board ? board.clientHeight : window.innerHeight;
-
-  const total = hand.length;
-  const effectiveIdx = Math.min(Math.max(cardIdx, 0), total - 1);
-  const fanCenter = (total - 1) / 2;
-  const offset = effectiveIdx - fanCenter;
-
-  const pos = players[playerIdx]?.position ?? 'top';
-  const isSidePlayer = pos === 'left' || pos === 'right';
-  const baseCurve = isSidePlayer ? 4.5 : 3.5;
-  const maxArcPx = isSidePlayer ? 36 : 28;
-  const naturalMult = total <= 1 ? 0 : baseCurve / Math.max(1, total * 0.3);
-  const yArcMult = total <= 1 ? 0 : Math.min(naturalMult, fanCenter > 0 ? maxArcPx / (fanCenter * fanCenter) : 1);
-  const xStep = Math.min(24, 200 / Math.max(total - 1, 1));
-  const degsEach = total <= 1 ? 0 : Math.min(10, 60 / (total - 1));
-
-  const localX = offset * xStep;
-  const localY = offset * offset * yArcMult;
-  const localRot = offset * degsEach;
-  const fanAngle = pos === 'left' ? 330 : pos === 'right' ? 30 : 0;
-
-  let anchorX = vw / 2;
-  let anchorY = vh / 2;
-  if (pos === 'top') {
-    anchorY = Math.max(32, Math.min(window.innerHeight * 0.08, 100));
-  } else {
-    anchorY = vh * 0.38;
-    const baseInset = Math.max(52, Math.min(vw * 0.14, 100));
-    const inset = baseInset + Math.min(fanCenter * xStep * 0.55, 52);
-    if (pos === 'left') anchorX = inset;
-    if (pos === 'right') anchorX = vw - inset;
-  }
-
-  const fanRad = (fanAngle * Math.PI) / 180;
-  const rotatedX = localX * Math.cos(fanRad) - localY * Math.sin(fanRad);
-  const rotatedY = localX * Math.sin(fanRad) + localY * Math.cos(fanRad);
-
-  const bottomX = anchorX + rotatedX;
-  const bottomY = anchorY + rotatedY;
-
-  const totalRotRaw = fanAngle + localRot;
-  const totalRot = ((totalRotRaw % 360) + 540) % 360 - 180;
-  const totalRotRad = (totalRot * Math.PI) / 180;
-  const cardW = Math.min(36, Math.max(28, vw * 0.07));
-  const cardH = cardW * 1.45;
-  const cardCenterX = bottomX + (cardH / 2) * Math.sin(totalRotRad);
-  const cardCenterY = bottomY - (cardH / 2) * Math.cos(totalRotRad);
-
-  const mdCardW = Math.min(52, Math.max(40, vw * 0.1));
-  const startX = vw / 2 - (mdCardW / 2 + 10);
-  const startY = vh / 2;
-
-  return {
-    tx: `${Math.round(cardCenterX - startX)}px`,
-    ty: `${Math.round(cardCenterY - startY)}px`,
-    trot: `${totalRot}deg`,
-    tzIndex: effectiveIdx,
-  };
-}
-
-function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU, isFromPicker, isDrag, isDecisionZone, onDone }: { startX: string; startY: string; startRot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; isDecisionZone?: boolean; onDone: () => void }) {
-  const duration = isDrag ? 480 : isDecisionZone ? 480 : 720;
-  useEffect(() => {
-    const t = setTimeout(onDone, duration);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Decision zone: keep the same arc proportions as a regular hand play.
-  // Regular play at ty=200: 18% lands at 62% of distance (200*0.94-64=124), 74% at 9% (200*0.18-18=18).
-  // Scale those fractions to decision-zone ty so the arc shape is identical, just compressed.
-  const tyNum = isDecisionZone ? parseFloat(startY) : null;
-  const playLift   = tyNum != null ? `${Math.round(tyNum * 0.32)}px` : undefined;
-  const playLiftSm = tyNum != null ? `${Math.round(tyNum * 0.09)}px` : undefined;
-
-  const s = isCPU ? 0.7 : startScale;
-  return (
-    <div
-      className="pointer-events-none"
-      style={{
-        position: 'absolute',
-        left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
-        top: '50%',
-        transform: `translate(calc(-50% + ${startX}), calc(-50% + ${startY})) scale(${s}) rotate(${startRot})`,
-        '--startX': startX,
-        '--startY': startY,
-        '--startRot': startRot,
-        '--startScale': s,
-        '--endX': 'calc(var(--card-md-w) + 20px)',
-        '--endY': '0px',
-        '--play-lift': playLift,
-        '--play-lift-sm': playLiftSm,
-        animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : isDrag ? `card-play-direct ${duration}ms both` : `card-play-arc ${duration}ms linear both`,
-        zIndex: Z.FLY_AIR,
-        perspective: (isCPU || isFromPicker) ? '600px' : undefined,
-      } as React.CSSProperties}
-    >
-      {isCPU ? (
-        <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
-          <div style={{ backfaceVisibility: 'hidden' }}>
-            <Card card={{ id: 'play-back', color: 'wild', value: 'wild' }} faceDown size="md" />
-          </div>
-          <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-            <Card card={card} size="md" />
-          </div>
-        </div>
-      ) : isFromPicker ? (
-        <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out reverse both' }}>
-          <div style={{ backfaceVisibility: 'hidden' }}>
-            <Card card={card} size="md" />
-          </div>
-          <div
-            className="absolute top-0 left-0 rounded-lg border-[3px] border-white overflow-hidden bg-[#0a0a0a]"
-            style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-          >
-            <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
-              <defs>
-                <clipPath id="picker-oval-clip-play">
-                  <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
-                </clipPath>
-                <path id="arc-top-play" d="M -46,0 A 46 72.7 0 0 1 46 0" transform="rotate(22)" />
-                <path id="arc-bot-play" d="M -46,0 A 46 72.7 0 0 0 46 0" transform="rotate(22)" />
-              </defs>
-              <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">
-                <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="#2563eb" />
-                <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="#16a34a" />
-                <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="#eab308" />
-                <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="#dc2626" />
-              </g>
-              <g transform="translate(50, 72.5)">
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
-                  <textPath href="#arc-top-play" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
-                </text>
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
-                  <textPath href="#arc-bot-play" startOffset="76%" textAnchor="middle">COLOR</textPath>
-                </text>
-              </g>
-            </svg>
-          </div>
-        </div>
-      ) : (
-        <Card card={card} size="md" />
-      )}
-    </div>
-  );
-}
-
-function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 720);
-    return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return (
-    <div
-      className="pointer-events-none"
-      style={{
-        position: 'absolute',
-        left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
-        top: '50%',
-        animation: 'init-card-arc 700ms linear both',
-        zIndex: Z.FLY_AIR,
-        perspective: '600px',
-      } as React.CSSProperties}
-    >
-      <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
-        <div style={{ backfaceVisibility: 'hidden' }}>
-          <Card card={{ id: 'init-back', color: 'wild', value: 'wild' }} faceDown />
-        </div>
-        <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-          <Card card={card} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, isKeepDraw, isDragKeep, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; isDragKeep?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
-  const dur = isKeepDraw ? 580 : isDragKeep ? 500 : isDragDraw ? 520 : 720;
-  useEffect(() => {
-    const t = setTimeout(onDone, delay + dur);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return (
-    // Outer div: owns the arc (translate + scale). Provides perspective for children.
-    <div
-      className="pointer-events-none"
-      style={{
-        position: 'absolute',
-        left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
-        top: '50%',
-        zIndex: Z.FLY_AIR,
-        '--tx': tx,
-        '--ty': ty,
-        '--trot': trot,
-        '--tzIndex': tzIndex,
-        '--endScale': size === 'sm' ? 0.7 : 1,
-        '--startX': (isDragDraw || isKeepDraw || isDragKeep) ? drawStartX : undefined,
-        '--startY': (isDragDraw || isKeepDraw || isDragKeep) ? drawStartY : undefined,
-        opacity: (isDragDraw || isKeepDraw || isDragKeep) ? undefined : 0,
-        animation: isDragKeep
-          ? `card-draw-direct ${dur}ms ${delay}ms both`
-          : isKeepDraw
-          ? `card-keep-arc ${dur}ms linear ${delay}ms both`
-          : isDragDraw
-          ? `card-draw-direct 500ms ${delay}ms both`
-          : `card-draw-arc 700ms linear ${delay}ms forwards`,
-        perspective: card ? '600px' : undefined,
-      } as React.CSSProperties}
-    >
-      {(isKeepDraw || isDragKeep) && card ? (
-        /* Card is already face-up at decision zone — no flip needed */
-        <Card card={card} size="md" />
-      ) : (
-        /* Inner div: owns the flip (rotateY). Separated so preserve-3d isn't killed by the arc animation. */
-        <div style={{
-          transformStyle: card ? 'preserve-3d' : undefined,
-          animation: card ? `card-flip ${isDragDraw ? 500 : 700}ms ease-in-out ${delay}ms both` : undefined,
-        }}>
-          {/* Back face — hidden after 90° */}
-          <div style={{ backfaceVisibility: card ? 'hidden' : undefined }}>
-            <Card card={{ id: 'flying-back', color: 'wild', value: 'wild' }} faceDown size="md" thick={size === 'sm'} />
-          </div>
-          {/* Front face — pre-rotated so it faces viewer at 180° */}
-          {card && (
-            <div style={{
-              position: 'absolute',
-              top: 0, left: 0,
-              backfaceVisibility: 'hidden',
-              transform: 'rotateY(180deg)',
-            }}>
-              <Card card={card} size="md" thick={size === 'sm'} />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function getDecisionZonePos() {
-  const board = document.getElementById('board-container');
-  const pilesRow = document.getElementById('piles-row');
-  const youTag = document.getElementById('you-nametag');
-  const vw = board ? board.clientWidth : window.innerWidth;
-  const vh = board ? board.clientHeight : window.innerHeight;
-  const cardW = Math.min(52, Math.max(40, vw * 0.1));
-
-  let cssTop = vh * 0.65; // fallback
-  if (board && pilesRow && youTag) {
-    const br = board.getBoundingClientRect();
-    const pr = pilesRow.getBoundingClientRect();
-    const yr = youTag.getBoundingClientRect();
-    cssTop = ((pr.bottom - br.top) + (yr.top - br.top)) / 2;
-  }
-
-  return {
-    tx: `${Math.round(cardW / 2 + 10)}px`,
-    ty: `${Math.round(cssTop - vh / 2)}px`,
-    trot: '0deg' as const,
-    startScale: 1 as const,
-    cssTop: Math.round(cssTop),
-  };
-}
 
 interface Props {
   opponents: OpponentConfig[];
@@ -378,23 +47,13 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [playingCards, setPlayingCards] = useState<Array<{ id: string; tx: string; ty: string; trot: string; startScale?: number; card: UnoCard; isCPU?: boolean; isFromPicker?: boolean; isDrag?: boolean; isDecisionZone?: boolean }>>([]);
   const [hiddenDiscardId, setHiddenDiscardId] = useState<string | null>(null);
   const prevDiscardIdsRef = useRef<Set<string>>(new Set());
-  const prevPlayersRef = useRef<import('../lib/uno').Player[]>([]);
+  const prevPlayersRef = useRef<Player[]>([]);
   // Turn-line animation state
   const [turnLine, setTurnLine] = useState({ offset: 0, length: 0, traveling: false });
   const [wildTravelColor, setWildTravelColor] = useState<string | null>(null);
   const [animatingFrom, setAnimatingFrom] = useState<number>(0);
   const [pickerBg, setPickerBg] = useState<'in' | 'out' | null>(null);
   const [dealLightningOffset, setDealLightningOffset] = useState<{ offset: number; length: number; phase: 0 | 1 | 2 | 3; dur: number } | null>(null);
-  // Drag-to-play / drag-to-draw
-  const DRAG_THRESHOLD = 120;
-  const dragRef = useRef<{ el: HTMLElement; parent: HTMLElement | null; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; liftedZIndex: string; usePositionOverride: boolean; invertY: boolean; startX: number; startY: number; elCX: number; elCY: number; hintTop: number; action: () => void } | null>(null);
-  const didDragActionRef = useRef(false);
-  const didDragMoveRef = useRef(false);
-  const dragPlayOverrideRef = useRef<{ tx: string; ty: string; trot: string; startScale: number } | null>(null);
-  const dragDrawOverrideRef = useRef<{ startX: string; startY: string } | null>(null);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dragHintRef = useRef<HTMLDivElement>(null);
-  const deckHintRef = useRef<HTMLDivElement>(null);
   // Decision zone drag
   const DECISION_THRESHOLD = 50;
   const [drawnDragDx, setDrawnDragDx] = useState(0);
@@ -407,173 +66,13 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const drawnDragDxRef = useRef(0);
   const drawnDragDyRef = useRef(0);
 
-  function startDrag(e: React.PointerEvent<HTMLElement>, action: () => void, baseRotation = 0, usePositionOverride = true, invertY = false) {
-    const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
-    const r = el.getBoundingClientRect();
-    const baseTransform = el.style.transform;
-    const baseTransformNoRot = baseTransform.replace(/\s*rotate\([^)]*\)/, '');
-    const baseZIndex = el.style.zIndex;
-    const liftedZIndex = String(Z.DRAG_CARD);
-
-    if (invertY) {
-      el.style.transition = 'transform 180ms ease-out, filter 200ms ease';
-      const capturedNoRot = baseTransformNoRot;
-      longPressTimerRef.current = setTimeout(() => {
-        longPressTimerRef.current = null;
-        if (dragRef.current) {
-          if (dragRef.current.parent) dragRef.current.parent.style.zIndex = String(Z.DRAG_PARENT);
-          if (deskRef.current) deskRef.current.style.zIndex = String(Z.DRAG_DESK);
-          dragRef.current.el.style.zIndex = dragRef.current.liftedZIndex;
-          dragRef.current.el.style.transform = `${capturedNoRot} scale(1.5)`;
-        }
-      }, 150);
-    }
-
-    didDragMoveRef.current = false;
-    dragRef.current = { el, parent: el.parentElement as HTMLElement | null, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, liftedZIndex, usePositionOverride, invertY, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, hintTop: getDecisionZonePos().cssTop, action };
-  }
-
-  function moveDrag(e: React.PointerEvent<HTMLElement>) {
-    const d = dragRef.current;
-    if (!d) return;
-
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    if (Math.hypot(dx, dy) > 8) didDragMoveRef.current = true;
-
-    d.el.style.zIndex = d.liftedZIndex;
-    if (d.invertY) {
-      if (d.parent) d.parent.style.zIndex = String(Z.DRAG_PARENT);
-      if (deskRef.current) deskRef.current.style.zIndex = String(Z.DRAG_DESK);
-    }
-
-    let progress: number;
-    if (d.invertY) {
-      if (didDragMoveRef.current) d.el.style.transition = 'filter 200ms ease';
-      progress = Math.min(Math.max(dy, 0) / DRAG_THRESHOLD, 1);
-      const scale = 1.5 - progress * 0.5;
-      d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) scale(${scale.toFixed(3)})`;
-      d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
-    } else {
-      d.el.style.transition = 'filter 200ms ease';
-      progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
-      const scale = 1 + progress * 0.5;
-      const rot = (d.baseRotation * (1 - progress)).toFixed(2);
-      d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${scale.toFixed(3)})`;
-      d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
-    }
-
-    if (d.invertY) {
-      if (dragHintRef.current) dragHintRef.current.style.opacity = '0';
-      if (deckHintRef.current) {
-        const board = document.getElementById('board-container');
-        const desk = deskRef.current;
-        if (board && desk) {
-          const br = board.getBoundingClientRect();
-          const dr = desk.getBoundingClientRect();
-          deckHintRef.current.style.left = `${board.clientWidth / 2 - (dr.left - br.left)}px`;
-          deckHintRef.current.style.top = `${d.hintTop - (dr.top - br.top)}px`;
-        }
-        deckHintRef.current.textContent = 'Release to draw';
-        deckHintRef.current.style.opacity = progress >= 1 ? '1' : '0';
-      }
-    } else {
-      if (deckHintRef.current) deckHintRef.current.style.opacity = '0';
-      if (dragHintRef.current) {
-        const board = document.getElementById('board-container');
-        dragHintRef.current.style.left = board ? `${board.clientWidth / 2}px` : '50%';
-        dragHintRef.current.style.top = `${d.hintTop}px`;
-        dragHintRef.current.textContent = 'Release to play';
-        dragHintRef.current.style.opacity = progress >= 1 ? '1' : '0';
-      }
-    }
-  }
-
-  function endDrag(e: React.PointerEvent<HTMLElement>) {
-    if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
-    if (dragHintRef.current) dragHintRef.current.style.opacity = '0';
-    if (deckHintRef.current) deckHintRef.current.style.opacity = '0';
-
-    const d = dragRef.current;
-    if (!d) return;
-    dragRef.current = null;
-
-    const dx = e.clientX - d.startX;
-    const dy = e.clientY - d.startY;
-    d.el.style.filter = '';
-
-    const triggered = d.invertY ? dy >= DRAG_THRESHOLD : dy <= -DRAG_THRESHOLD;
-
-    if (triggered) {
-      if (d.parent) d.parent.style.zIndex = '';
-      if (deskRef.current) deskRef.current.style.zIndex = '';
-
-      d.el.style.zIndex = d.baseZIndex;
-      const r2 = d.el.getBoundingClientRect();
-      const relCX = r2.left + r2.width / 2;
-      const relCY = r2.top + r2.height / 2;
-
-      const board = document.getElementById('board-container')!;
-      const br = board.getBoundingClientRect();
-      const bvw = board.clientWidth;
-      const bvh = board.clientHeight;
-
-      const cardW = Math.min(52, Math.max(40, bvw * 0.1));
-      const anchorX = br.left + bvw / 2 - cardW / 2 - 10;
-      const anchorY = br.top + bvh / 2;
-
-      if (!d.invertY) {
-        const tx = `${Math.round(relCX - anchorX)}px`;
-        const ty = `${Math.round(relCY - anchorY)}px`;
-
-        if (d.usePositionOverride) {
-          const scale = 1 + Math.min(-dy / DRAG_THRESHOLD, 1) * 0.5;
-          dragPlayOverrideRef.current = { tx, ty, trot: '0deg', startScale: parseFloat(scale.toFixed(3)) };
-        }
-      } else {
-        dragDrawOverrideRef.current = {
-          startX: `${Math.round(relCX - anchorX)}px`,
-          startY: `${Math.round(relCY - anchorY)}px`,
-        };
-        d.el.style.transition = '';
-        d.el.style.transform = d.baseTransform;
-        d.el.style.opacity = '0';
-
-        const el = d.el;
-        setTimeout(() => {
-          el.style.opacity = '';
-          el.style.animation = 'deck-restock 320ms cubic-bezier(0.22, 1, 0.36, 1) both';
-          setTimeout(() => { el.style.animation = ''; }, 350);
-        }, 200);
-      }
-
-      didDragActionRef.current = true;
-      d.action();
-      setTimeout(() => { didDragActionRef.current = false; didDragMoveRef.current = false; }, 0);
-    } else {
-      d.el.style.zIndex = d.baseZIndex;
-      void d.el.offsetHeight;
-      d.el.style.transition = 'transform 0.35s cubic-bezier(0.34,1.2,0.64,1), filter 0.2s ease';
-      d.el.style.transform = d.baseTransform;
-
-      // Wait for the 350ms return-flight to finish before dropping elevation,
-      // otherwise the card slides under the discard pile mid-animation.
-      const parent = d.parent;
-      const desk = deskRef.current;
-      setTimeout(() => {
-        if (parent) parent.style.zIndex = '';
-        if (desk) desk.style.zIndex = '';
-      }, 350);
-    }
-  }
-
   // Direction indicator fade
   const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
   const [dirOpacity, setDirOpacity] = useState(0);
   const [showInitAnim, setShowInitAnim] = useState(false);
 
   const deskRef = useRef<HTMLDivElement>(null);
+  const { startDrag, moveDrag, endDrag, dragPlayOverrideRef, dragDrawOverrideRef, didDragActionRef, didDragMoveRef, dragHintRef, deckHintRef } = useDrag(deskRef);
   const [desk, setDesk] = useState({ w: 700, h: 340 });
 
   useLayoutEffect(() => {
@@ -870,12 +369,14 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     const dur = 600 + (totalCards - 1) * 150 + 720;
     const nLoops = Math.min(2, Math.ceil(totalCards / 7));
 
-    const pos = state.players[state.currentPlayer]?.position;
-    const nameTagPos = pos === 'top' ? 0 : pos === 'right' ? 250 : pos === 'bottom' ? 500 : pos === 'left' ? 750 : 500;
+    const toPos = (pos: string | undefined) => pos === 'top' ? 0 : pos === 'right' ? 250 : pos === 'bottom' ? 500 : pos === 'left' ? 750 : 500;
+    const startPos = toPos(state.players[0]?.position);           // always human
+    const endPos   = toPos(state.players[state.currentPlayer]?.position); // first player
+    const dist     = (endPos - startPos + 1000) % 1000;
 
-    const departure    = nameTagPos + 1000;             // loop-2 name tag
-    const launchOffset = departure + 160;               // after launch: tail at name tag, head 160 ahead
-    const arrival      = nameTagPos + (1 + nLoops) * 1000; // where head stops (name tag, next loop)
+    const departure    = startPos + 1000;
+    const launchOffset = departure + 160;
+    const arrival      = departure + nLoops * 1000 + dist;
 
     const launchDur   = 250;
     // tail must travel 160 units at the same speed as phase-2 spark
@@ -1335,7 +836,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
               p.position === 'left'   ? 'left-[12px] top-1/2 -translate-y-1/2' :
               p.position === 'right'  ? 'right-[12px] top-1/2 -translate-y-1/2' : '';
             if (!posClass) return null;
-            const isActive = activeSeat === idx;
+            const isActive = initCardRevealed && activeSeat === idx;
             const isPunished = actionTag?.seat === idx;
             const displayTag = isPunished ? actionTag!.text : p.name;
 
