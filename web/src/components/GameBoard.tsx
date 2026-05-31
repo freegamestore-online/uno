@@ -1478,7 +1478,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           />
         ))}
 
-{/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
+        {/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
         {state.drawnCard && drawnCardLanded && (
           <div
             className="absolute pointer-events-none"

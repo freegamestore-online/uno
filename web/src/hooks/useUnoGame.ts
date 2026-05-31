@@ -16,10 +16,11 @@ import type { GameState } from '../lib/uno';
 interface ExtState extends GameState {
   pendingCardId: string | null;
   drawnCard: UnoCard | null;
+  cpuPendingPlay: { cardId: string; chosenColor?: CardColor } | null;
 }
 
 function makeExt(s: GameState): ExtState {
-  return { ...s, pendingCardId: null, drawnCard: null };
+  return { ...s, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
 }
 
 export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: number | null) {
@@ -217,9 +218,24 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSeat, state.pendingAction, lockBoard]);
 
+  // CPU drew a playable card: play it after the draw animation lands (~900ms)
+  useEffect(() => {
+    if (!state.cpuPendingPlay) return;
+    const { cardId, chosenColor } = state.cpuPendingPlay;
+    const t = setTimeout(() => {
+      lockBoard();
+      setState(prev => {
+        if (!prev.cpuPendingPlay) return prev;
+        return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+      });
+    }, 900);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.cpuPendingPlay, lockBoard]);
+
   // CPU turns — waits for both isLocked and activeSeat to confirm the UI has caught up
   useEffect(() => {
-    if (state.phase !== 'playing' || isLocked || activeSeat !== state.currentPlayer || state.pendingAction) return;
+    if (state.phase !== 'playing' || isLocked || activeSeat !== state.currentPlayer || state.pendingAction || state.cpuPendingPlay) return;
     const current = state.players[state.currentPlayer];
     if (!current || current.isHuman) return;
 
@@ -233,9 +249,16 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
         const card = cpuChooseCard(prev);
         if (!card) {
           const s = drawCards(prev, prev.currentPlayer, 1);
+          const drawn = s.players[prev.currentPlayer]?.hand.at(-1);
+          if (drawn && isPlayable(drawn, topCard(s))) {
+            const chosenColor = drawn.value === 'wild' || drawn.value === 'wild4'
+              ? cpuChooseColor(s.players[s.currentPlayer]?.hand.filter(c => c.id !== drawn.id) ?? [])
+              : undefined;
+            return { ...makeExt(s), cpuPendingPlay: { cardId: drawn.id, chosenColor } };
+          }
           const n = s.players.length;
           const next = ((s.currentPlayer + s.direction) % n + n) % n;
-          return { ...s, currentPlayer: next, pendingCardId: null, drawnCard: null };
+          return { ...makeExt(s), currentPlayer: next };
         }
 
         const chosenColor =
@@ -243,7 +266,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
             ? cpuChooseColor(cpu.hand.filter(c => c.id !== card.id))
             : undefined;
 
-        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null, drawnCard: null };
+        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
       });
     }, 500);
 
@@ -274,5 +297,28 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, restart };
+  const debugCPUDrawTest = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== 'playing') return prev;
+      const cpuIdx = prev.players.findIndex(p => !p.isHuman);
+      if (cpuIdx === -1) return prev;
+      const top = topCard(prev);
+      const cpu = prev.players[cpuIdx]!;
+      // Strip playables from CPU hand, surface a playable to deck top
+      const playableInHand = cpu.hand.filter(c => isPlayable(c, top));
+      const nonPlayable = cpu.hand.filter(c => !isPlayable(c, top));
+      let deck = [...prev.deck, ...playableInHand];
+      const playableIdx = deck.findIndex(c => isPlayable(c, top));
+      if (playableIdx === -1) return prev;
+      const [surfaced] = deck.splice(playableIdx, 1);
+      deck = [...deck, surfaced!];
+      const players = prev.players.map((p, i) =>
+        i === cpuIdx ? { ...p, hand: nonPlayable.length > 0 ? nonPlayable : [deck[deck.length - 2]!] } : p
+      );
+      return { ...prev, deck, players, currentPlayer: cpuIdx, drawnCard: null, pendingCardId: null, cpuPendingPlay: null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, debugCPUDrawTest, restart };
 }
