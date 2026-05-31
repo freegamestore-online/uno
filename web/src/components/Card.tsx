@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { UnoCard, effectiveColor } from '../lib/uno';
 
 const COLOR_BG: Record<string, string> = {
@@ -61,7 +62,7 @@ function ReverseIcon3D({ isCenter }: { isCenter?: boolean }) {
   );
 }
 
-function WildIcon3D() {
+function WildIcon3D({ clipId }: { clipId: string }) {
   const scale = 0.65;
   const rx = 18;
   const ry = 24;
@@ -69,11 +70,11 @@ function WildIcon3D() {
   return (
     <g transform={`scale(${scale})`}>
       <defs>
-        <clipPath id="wild-corner-clip">
+        <clipPath id={clipId}>
           <ellipse cx="0" cy="0" rx={rx} ry={ry} transform="rotate(22)" />
         </clipPath>
       </defs>
-      <g clipPath="url(#wild-corner-clip)">
+      <g clipPath={`url(#${clipId})`}>
         <polygon points="0,0 14.98,-37.09 40,-40 40,0" fill="#2563eb" />
         <polygon points="0,0 40,0 40,40 -14.98,37.09" fill="#16a34a" />
         <polygon points="0,0 -14.98,37.09 -40,40 -40,0" fill="#eab308" />
@@ -118,6 +119,7 @@ interface Props {
 }
 
 export function Card({ card, faceDown, playable, selected, onClick, size = 'md', thick }: Props) {
+  const uid = useId();
   const color = effectiveColor(card);
   const bg = card.value === 'wild4' && card.chosenColor ? COLOR_BG[card.chosenColor] : card.color === 'wild' ? COLOR_BG['wild'] : (COLOR_BG[color] ?? '#7c3aed');
   const label = LABEL[card.value] ?? card.value;
@@ -192,12 +194,12 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
       <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full z-10 pointer-events-none">
         {/* Top Left Corner */}
         <g transform={`translate(${topLeftX}, 20)`}>
-          {card.value === 'skip' ? <SkipIcon3D /> : card.value === 'reverse' ? <ReverseIcon3D /> : card.value === 'wild' ? <WildIcon3D /> : <Text3D text={label} fontSize={32} />}
+          {card.value === 'skip' ? <SkipIcon3D /> : card.value === 'reverse' ? <ReverseIcon3D /> : card.value === 'wild' ? <WildIcon3D clipId={`${uid}-wc`} /> : <Text3D text={label} fontSize={32} />}
         </g>
 
         {/* Bottom Right Corner (Rotated 180deg) */}
         <g transform={`translate(${botRightX}, 125) rotate(180)`}>
-          {card.value === 'skip' ? <SkipIcon3D /> : card.value === 'reverse' ? <ReverseIcon3D /> : card.value === 'wild' ? <WildIcon3D /> : <Text3D text={label} fontSize={32} />}
+          {card.value === 'skip' ? <SkipIcon3D /> : card.value === 'reverse' ? <ReverseIcon3D /> : card.value === 'wild' ? <WildIcon3D clipId={`${uid}-wc`} /> : <Text3D text={label} fontSize={32} />}
         </g>
 
         {/* Center Content */}

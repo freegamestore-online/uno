@@ -8,6 +8,6 @@ export const Z = {
   MODAL:       80,  // color picker, game-over overlay
   DRAG_DESK:   90,  // desk lifted while a card is being dragged
   DRAG_PARENT: 95,  // hand-fan parent lifted while dragging (creates stacking ctx)
+  DRAG_HINT:   92,  // "Release to play" hint — below DRAG_PARENT (95) so hand card renders on top
   DRAG_CARD:  200,  // card within its drag-parent stacking context
-  DEBUG:      999,
 } as const;

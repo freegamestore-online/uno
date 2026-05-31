@@ -144,6 +144,9 @@
   to   { opacity: 0; transform: translateY(-20px); }
 }
 
+/* Force cursor to inherit on all children of the decision-zone draggable card */
+.decision-draggable * { cursor: inherit !important; }
+
 /* 3-phase draw animation: Rise → Fly → Drop
    Requires --tx, --ty, and --endScale CSS vars set on the element */
 @keyframes card-draw-arc {

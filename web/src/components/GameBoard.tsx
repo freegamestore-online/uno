@@ -77,7 +77,7 @@ function getHumanCardTarget(hand: UnoCard[], cardId: string, isPlaying = false):
   return { tx, ty, trot, tzIndex: cardIdx };
 }
 
-interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; drawStartX?: string; drawStartY?: string; }
+interface FlyAnim { id: string; cardId: string; playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; isDragKeep?: boolean; drawStartX?: string; drawStartY?: string; }
 
 // Calculates exact --tx/--ty for a CPU card slot using the player's physical position.
 function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: number, players: Player[]): { tx: string; ty: string; trot: string; tzIndex: number } {
@@ -158,6 +158,7 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
   const playLift   = tyNum != null ? `${Math.round(tyNum * 0.32)}px` : undefined;
   const playLiftSm = tyNum != null ? `${Math.round(tyNum * 0.09)}px` : undefined;
 
+  const s = isCPU ? 0.7 : startScale;
   return (
     <div
       className="pointer-events-none"
@@ -165,10 +166,11 @@ function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card, isCPU
         position: 'absolute',
         left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
         top: '50%',
+        transform: `translate(calc(-50% + ${startX}), calc(-50% + ${startY})) scale(${s}) rotate(${startRot})`,
         '--startX': startX,
         '--startY': startY,
         '--startRot': startRot,
-        '--startScale': isCPU ? 0.7 : startScale,
+        '--startScale': s,
         '--endX': 'calc(var(--card-md-w) + 20px)',
         '--endY': '0px',
         '--play-lift': playLift,
@@ -258,8 +260,8 @@ function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => void })
   );
 }
 
-function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, isKeepDraw, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
-  const dur = isKeepDraw ? 580 : isDragDraw ? 520 : 720;
+function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, isKeepDraw, isDragKeep, drawStartX, drawStartY, onDone }: { playerId: number; delay: number; tx: string; ty: string; trot: string; tzIndex: number; size: 'sm' | 'md'; card: UnoCard | null; isDragDraw?: boolean; isKeepDraw?: boolean; isDragKeep?: boolean; drawStartX?: string; drawStartY?: string; onDone: () => void }) {
+  const dur = isKeepDraw ? 580 : isDragKeep ? 500 : isDragDraw ? 520 : 720;
   useEffect(() => {
     const t = setTimeout(onDone, delay + dur);
     return () => clearTimeout(t);
@@ -280,10 +282,12 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, 
         '--trot': trot,
         '--tzIndex': tzIndex,
         '--endScale': size === 'sm' ? 0.7 : 1,
-        '--startX': (isDragDraw || isKeepDraw) ? drawStartX : undefined,
-        '--startY': (isDragDraw || isKeepDraw) ? drawStartY : undefined,
-        opacity: (isDragDraw || isKeepDraw) ? undefined : 0,
-        animation: isKeepDraw
+        '--startX': (isDragDraw || isKeepDraw || isDragKeep) ? drawStartX : undefined,
+        '--startY': (isDragDraw || isKeepDraw || isDragKeep) ? drawStartY : undefined,
+        opacity: (isDragDraw || isKeepDraw || isDragKeep) ? undefined : 0,
+        animation: isDragKeep
+          ? `card-draw-direct ${dur}ms ${delay}ms both`
+          : isKeepDraw
           ? `card-keep-arc ${dur}ms linear ${delay}ms both`
           : isDragDraw
           ? `card-draw-direct 500ms ${delay}ms both`
@@ -291,7 +295,7 @@ function FlyingCardAnim({ delay, tx, ty, trot, tzIndex, size, card, isDragDraw, 
         perspective: card ? '600px' : undefined,
       } as React.CSSProperties}
     >
-      {isKeepDraw && card ? (
+      {(isKeepDraw || isDragKeep) && card ? (
         /* Card is already face-up at decision zone — no flip needed */
         <Card card={card} size="md" />
       ) : (
@@ -361,6 +365,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [drawnCardLanded, setDrawnCardLanded] = useState(false);
   const [drawnCardCssTop, setDrawnCardCssTop] = useState(0);
   const drawnCardFlyAnimIdRef = useRef<string | null>(null);
+  const drawnCardDzRef = useRef<ReturnType<typeof getDecisionZonePos> | null>(null);
   const drawnCardKeptRef = useRef<string | null>(null);
   const drawnCardPlayedRef = useRef<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -382,12 +387,25 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [dealLightningOffset, setDealLightningOffset] = useState<{ offset: number; length: number; phase: 0 | 1 | 2 | 3; dur: number } | null>(null);
   // Drag-to-play / drag-to-draw
   const DRAG_THRESHOLD = 120;
-  const dragRef = useRef<{ el: HTMLElement; parent: HTMLElement | null; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; liftedZIndex: string; usePositionOverride: boolean; invertY: boolean; startX: number; startY: number; elCX: number; elCY: number; action: () => void } | null>(null);
+  const dragRef = useRef<{ el: HTMLElement; parent: HTMLElement | null; baseTransform: string; baseTransformNoRot: string; baseRotation: number; baseZIndex: string; liftedZIndex: string; usePositionOverride: boolean; invertY: boolean; startX: number; startY: number; elCX: number; elCY: number; hintTop: number; action: () => void } | null>(null);
   const didDragActionRef = useRef(false);
   const didDragMoveRef = useRef(false);
   const dragPlayOverrideRef = useRef<{ tx: string; ty: string; trot: string; startScale: number } | null>(null);
   const dragDrawOverrideRef = useRef<{ startX: string; startY: string } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragHintRef = useRef<HTMLDivElement>(null);
+  const deckHintRef = useRef<HTMLDivElement>(null);
+  // Decision zone drag
+  const DECISION_THRESHOLD = 50;
+  const [drawnDragDx, setDrawnDragDx] = useState(0);
+  const [drawnDragDy, setDrawnDragDy] = useState(0);
+  const [drawnDragActive, setDrawnDragActive] = useState(false);
+  const [drawnCardSettled, setDrawnCardSettled] = useState(false);
+  const [drawnSnapEnabled, setDrawnSnapEnabled] = useState(false);
+  const [drawnFlyAnimId, setDrawnFlyAnimId] = useState<string | null>(null);
+  const drawnDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const drawnDragDxRef = useRef(0);
+  const drawnDragDyRef = useRef(0);
 
   function startDrag(e: React.PointerEvent<HTMLElement>, action: () => void, baseRotation = 0, usePositionOverride = true, invertY = false) {
     const el = e.currentTarget;
@@ -413,7 +431,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
     }
 
     didDragMoveRef.current = false;
-    dragRef.current = { el, parent: el.parentElement as HTMLElement | null, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, liftedZIndex, usePositionOverride, invertY, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, action };
+    dragRef.current = { el, parent: el.parentElement as HTMLElement | null, baseTransform, baseTransformNoRot, baseRotation, baseZIndex, liftedZIndex, usePositionOverride, invertY, startX: e.clientX, startY: e.clientY, elCX: r.left + r.width / 2, elCY: r.top + r.height / 2, hintTop: getDecisionZonePos().cssTop, action };
   }
 
   function moveDrag(e: React.PointerEvent<HTMLElement>) {
@@ -430,24 +448,52 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
       if (deskRef.current) deskRef.current.style.zIndex = String(Z.DRAG_DESK);
     }
 
+    let progress: number;
     if (d.invertY) {
       if (didDragMoveRef.current) d.el.style.transition = 'filter 200ms ease';
-      const progress = Math.min(Math.max(dy, 0) / DRAG_THRESHOLD, 1);
+      progress = Math.min(Math.max(dy, 0) / DRAG_THRESHOLD, 1);
       const scale = 1.5 - progress * 0.5;
       d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) scale(${scale.toFixed(3)})`;
       d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
     } else {
       d.el.style.transition = 'filter 200ms ease';
-      const progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
+      progress = Math.min(Math.max(-dy, 0) / DRAG_THRESHOLD, 1);
       const scale = 1 + progress * 0.5;
       const rot = (d.baseRotation * (1 - progress)).toFixed(2);
       d.el.style.transform = `${d.baseTransformNoRot} translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${scale.toFixed(3)})`;
       d.el.style.filter = progress >= 1 ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))' : '';
     }
+
+    if (d.invertY) {
+      if (dragHintRef.current) dragHintRef.current.style.opacity = '0';
+      if (deckHintRef.current) {
+        const board = document.getElementById('board-container');
+        const desk = deskRef.current;
+        if (board && desk) {
+          const br = board.getBoundingClientRect();
+          const dr = desk.getBoundingClientRect();
+          deckHintRef.current.style.left = `${board.clientWidth / 2 - (dr.left - br.left)}px`;
+          deckHintRef.current.style.top = `${d.hintTop - (dr.top - br.top)}px`;
+        }
+        deckHintRef.current.textContent = 'Release to draw';
+        deckHintRef.current.style.opacity = progress >= 1 ? '1' : '0';
+      }
+    } else {
+      if (deckHintRef.current) deckHintRef.current.style.opacity = '0';
+      if (dragHintRef.current) {
+        const board = document.getElementById('board-container');
+        dragHintRef.current.style.left = board ? `${board.clientWidth / 2}px` : '50%';
+        dragHintRef.current.style.top = `${d.hintTop}px`;
+        dragHintRef.current.textContent = 'Release to play';
+        dragHintRef.current.style.opacity = progress >= 1 ? '1' : '0';
+      }
+    }
   }
 
   function endDrag(e: React.PointerEvent<HTMLElement>) {
     if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null; }
+    if (dragHintRef.current) dragHintRef.current.style.opacity = '0';
+    if (deckHintRef.current) deckHintRef.current.style.opacity = '0';
 
     const d = dragRef.current;
     if (!d) return;
@@ -879,6 +925,16 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   // Reset landing flag whenever drawnCard changes (guards against stale true from a previous round)
   useEffect(() => {
     setDrawnCardLanded(false);
+    setDrawnFlyAnimId(null);
+    setDrawnDragDx(0);
+    setDrawnDragDy(0);
+    setDrawnDragActive(false);
+    setDrawnCardSettled(false);
+    setDrawnSnapEnabled(false);
+    drawnDragStartRef.current = null;
+    drawnDragDxRef.current = 0;
+    drawnDragDyRef.current = 0;
+    drawnCardDzRef.current = null;
     if (!state.drawnCard && drawnCardFlyAnimIdRef.current) {
       removeFlyAnim(drawnCardFlyAnimIdRef.current);
       drawnCardFlyAnimIdRef.current = null;
@@ -917,28 +973,68 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.drawnCard?.id]);
 
-  function handlePlayDrawn() {
+  function handleDecisionPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drawnDragStartRef.current = { x: e.clientX, y: e.clientY };
+    setDrawnDragActive(true);
+    setDrawnCardSettled(false);
+    setDrawnSnapEnabled(true);
+  }
+
+  function handleDecisionPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!drawnDragStartRef.current) return;
+    const dx = e.clientX - drawnDragStartRef.current.x;
+    const dy = e.clientY - drawnDragStartRef.current.y;
+    drawnDragDxRef.current = dx;
+    drawnDragDyRef.current = dy;
+    setDrawnDragDx(dx);
+    setDrawnDragDy(dy);
+  }
+
+  function handleDecisionPointerUp() {
+    if (!drawnDragStartRef.current) return;
+    drawnDragStartRef.current = null;
+    const dx = drawnDragDxRef.current;
+    const dy = drawnDragDyRef.current;
+    drawnDragDxRef.current = 0;
+    drawnDragDyRef.current = 0;
+    if (dy < -DECISION_THRESHOLD) {
+      // Leave drawnDragActive=true so card stays scaled until overlay unmounts
+      handlePlayDrawn(dx, dy);
+    } else if (dy > DECISION_THRESHOLD) {
+      handleKeepDrawn(dx, dy);
+    } else {
+      setDrawnDragActive(false);
+      setDrawnDragDx(0);
+      setDrawnDragDy(0);
+      if (Math.hypot(dx, dy) < 5) setDrawnCardSettled(true);
+      // else: onTransitionEnd fires after snap-back
+    }
+  }
+
+  function handlePlayDrawn(dragOffsetX = 0, dragOffsetY = 0) {
     if (!state.drawnCard) return;
     const card = state.drawnCard;
     setDrawnCardLanded(false);
     if (drawnCardFlyAnimIdRef.current) { removeFlyAnim(drawnCardFlyAnimIdRef.current); drawnCardFlyAnimIdRef.current = null; }
-    const dz = getDecisionZonePos();
+    const dz = drawnCardDzRef.current ?? getDecisionZonePos();
+    const tx = `${parseFloat(dz.tx) + dragOffsetX}px`;
+    const ty = `${parseFloat(dz.ty) + dragOffsetY}px`;
+    const fromDrag = dragOffsetX !== 0 || dragOffsetY !== 0;
     if (card.value === 'wild' || card.value === 'wild4') {
-      // Card is briefly added to hand for color-pick; suppress the FlyAnim that would be triggered
       drawnCardPlayedRef.current = card.id;
-      dragPlayOverrideRef.current = dz;
+      dragPlayOverrideRef.current = { tx, ty, trot: dz.trot, startScale: dz.startScale };
     } else {
-      // prevPlayersRef never had this card, so create PlayingCardAnim manually
-      setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx: dz.tx, ty: dz.ty, trot: dz.trot, startScale: dz.startScale, card, isCPU: false, isFromPicker: false, isDrag: false, isDecisionZone: true }]);
+      setPlayingCards(prev => [...prev, { id: `play-${Date.now()}`, tx, ty, trot: dz.trot, startScale: dz.startScale, card, isCPU: false, isFromPicker: false, isDrag: fromDrag, isDecisionZone: !fromDrag }]);
       setHiddenDiscardId(card.id);
     }
     humanPlayDrawn();
   }
 
-  function handleKeepDrawn() {
+  function handleKeepDrawn(dragOffsetX = 0, dragOffsetY = 0) {
     if (!state.drawnCard) return;
     const card = state.drawnCard;
-    const dz = getDecisionZonePos();
+    const dz = drawnCardDzRef.current ?? getDecisionZonePos();
 
     // Predict the fan target: card will be appended to hand after humanKeepDrawn
     const predictedHand = [...me.hand, card];
@@ -962,9 +1058,10 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
       tzIndex: fanTz,
       size: 'md' as const,
       card,
-      isKeepDraw: true,
-      drawStartX: dz.tx,
-      drawStartY: dz.ty,
+      isKeepDraw: dragOffsetX === 0 && dragOffsetY === 0,
+      isDragKeep: dragOffsetX !== 0 || dragOffsetY !== 0,
+      drawStartX: `${parseFloat(dz.tx) + dragOffsetX}px`,
+      drawStartY: `${parseFloat(dz.ty) + dragOffsetY}px`,
     }]);
 
     humanKeepDrawn();
@@ -1324,6 +1421,23 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
               )}
             </div>
           </div>
+
+          {/* Deck-drag release hint — inside desk stacking context, below DRAG_PARENT (95) */}
+          <div
+            ref={deckHintRef}
+            className="absolute pointer-events-none font-sans font-semibold"
+            style={{
+              left: 0,
+              top: 0,
+              transform: 'translate(-50%, -50%)',
+              zIndex: 88,
+              color: 'rgba(255,255,255,0.9)',
+              fontSize: 'clamp(13px, 3.5vw, 15px)',
+              whiteSpace: 'nowrap',
+              opacity: 0,
+              transition: 'opacity 100ms ease',
+            }}
+          />
         </div>
 
 
@@ -1413,8 +1527,8 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
         {/* Flying card animations */}
         {flyingCards.map(fc => (
+          <div key={fc.id} style={drawnFlyAnimId === fc.id ? { visibility: 'hidden' } : undefined}>
           <FlyingCardAnim
-            key={fc.id}
             playerId={fc.playerId}
             delay={fc.delay}
             tx={fc.tx}
@@ -1425,14 +1539,19 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
             card={fc.card}
             isDragDraw={fc.isDragDraw}
             isKeepDraw={fc.isKeepDraw}
+            isDragKeep={fc.isDragKeep}
             drawStartX={fc.drawStartX}
             drawStartY={fc.drawStartY}
             onDone={() => {
               if (state.drawnCard?.id === fc.cardId) {
                 // Keep the FlyAnim alive so card stays visible; record id for removal on choice
                 drawnCardFlyAnimIdRef.current = fc.id;
-                setDrawnCardCssTop(getDecisionZonePos().cssTop);
+                setDrawnFlyAnimId(fc.id);
+                const dz = getDecisionZonePos();
+                drawnCardDzRef.current = dz;
+                setDrawnCardCssTop(dz.cssTop);
                 setDrawnCardLanded(true);
+                requestAnimationFrame(() => requestAnimationFrame(() => setDrawnCardSettled(true)));
               } else {
                 removeFlyAnim(fc.id);
                 setHiddenCardIds(prev => {
@@ -1444,6 +1563,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
               }
             }}
           />
+          </div>
         ))}
 
         {/* Init card reveal (deck → discard, face-down → face-up flip) */}
@@ -1478,38 +1598,107 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
           />
         ))}
 
-        {/* Drawn-playable card decision overlay — buttons only, card stays as FlyingCardAnim */}
+        {/* Drag-to-play / drag-to-draw release hint (normal hand/deck drag) */}
+        <div
+          ref={dragHintRef}
+          className="absolute pointer-events-none font-sans font-semibold"
+          style={{
+            left: 0,
+            top: 0,
+            transform: 'translate(-50%, -50%)',
+            zIndex: Z.DRAG_HINT,
+            color: 'rgba(255,255,255,0.9)',
+            fontSize: 'clamp(13px, 3.5vw, 15px)',
+            whiteSpace: 'nowrap',
+            opacity: 0,
+            transition: 'opacity 100ms ease',
+          }}
+        />
+
+        {/* Decision zone: draggable card + release hint text */}
         {state.drawnCard && drawnCardLanded && (
-          <div
-            className="absolute pointer-events-none"
-            style={{
-              left: 0, right: 0,
-              top: `${drawnCardCssTop}px`,
-              transform: 'translateY(-50%)',
-              zIndex: Z.DECISION,
-              display: 'grid',
-              gridTemplateColumns: `1fr var(--card-md-w) 1fr`,
-              alignItems: 'center',
-              columnGap: 'clamp(12px, 3vw, 20px)',
-              padding: '0 clamp(16px, 5vw, 32px)',
-            }}
-          >
-            <button
-              onClick={handlePlayDrawn}
-              className="pointer-events-auto cursor-pointer font-sans font-semibold transition-opacity duration-150 hover:opacity-60"
-              style={{ justifySelf: 'end', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', animation: 'slide-in-right 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+          <>
+            {/* Outer div: translation only — 1:1 when dragging, spring-back when released */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: `${drawnCardCssTop}px`,
+                transform: `translate(calc(-50% + ${drawnDragDx}px), calc(-50% + ${drawnDragDy}px))`,
+                transition: (drawnDragActive || !drawnSnapEnabled) ? 'none' : 'transform 220ms cubic-bezier(0.34,1.2,0.64,1)',
+                zIndex: Z.FLY_AIR + 1,
+                touchAction: 'none',
+                cursor: drawnDragActive ? 'grabbing' : 'grab',
+              }}
+              onPointerDown={handleDecisionPointerDown}
+              onPointerMove={handleDecisionPointerMove}
+              onPointerUp={handleDecisionPointerUp}
+              onPointerCancel={handleDecisionPointerUp}
+              onTransitionEnd={(e) => { if (e.target === e.currentTarget) setDrawnCardSettled(true); }}
+              className="decision-draggable"
             >
-              Play
-            </button>
-            <div />
-            <button
-              onClick={handleKeepDrawn}
-              className="pointer-events-auto cursor-pointer font-sans font-semibold transition-opacity duration-150 hover:opacity-60"
-              style={{ justifySelf: 'start', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', animation: 'slide-in-left 0.25s cubic-bezier(0.22,1,0.36,1) both' }}
+              {/* Inner div: scale + glow — always transitions smoothly */}
+              <div style={{
+                transform: `scale(${drawnDragActive ? 1.15 : 1})`,
+                filter: (drawnDragDy < -DECISION_THRESHOLD || drawnDragDy > DECISION_THRESHOLD)
+                  ? 'drop-shadow(0 0 14px rgba(255,255,255,0.9))'
+                  : 'none',
+                transition: 'transform 150ms ease, filter 200ms ease',
+              }}>
+                <Card card={state.drawnCard} size="md" />
+              </div>
+            </div>
+            {/* Release hint — fades in past threshold */}
+            <div
+              className="absolute pointer-events-none font-sans font-semibold"
+              style={{
+                left: '50%',
+                top: `${drawnCardCssTop}px`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: Z.DECISION,
+                color: 'rgba(255,255,255,0.9)',
+                fontSize: 'clamp(13px, 3.5vw, 15px)',
+                whiteSpace: 'nowrap',
+                opacity: (drawnDragDy < -DECISION_THRESHOLD || drawnDragDy > DECISION_THRESHOLD) ? 1 : 0,
+                transition: 'opacity 100ms ease',
+              }}
             >
-              Draw
-            </button>
-          </div>
+              {drawnDragDy < 0 ? 'Release to play' : 'Release to draw'}
+            </div>
+            {/* Buttons — fade out when dragging or past threshold */}
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                left: 0, right: 0,
+                top: `${drawnCardCssTop}px`,
+                transform: 'translateY(-50%)',
+                zIndex: Z.DECISION,
+                display: 'grid',
+                gridTemplateColumns: `1fr var(--card-md-w) 1fr`,
+                alignItems: 'center',
+                columnGap: 'clamp(12px, 3vw, 20px)',
+                padding: '0 clamp(16px, 5vw, 32px)',
+                opacity: (drawnCardSettled && drawnDragDy >= -DECISION_THRESHOLD && drawnDragDy <= DECISION_THRESHOLD) ? 1 : 0,
+                transition: 'opacity 150ms ease',
+              }}
+            >
+              <button
+                onClick={() => handlePlayDrawn()}
+                className="pointer-events-auto cursor-pointer font-sans font-semibold hover:opacity-60"
+                style={{ justifySelf: 'end', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', minWidth: 'clamp(72px, 18vw, 88px)', textAlign: 'center' }}
+              >
+                Play
+              </button>
+              <div />
+              <button
+                onClick={() => handleKeepDrawn()}
+                className="pointer-events-auto cursor-pointer font-sans font-semibold hover:opacity-60"
+                style={{ justifySelf: 'start', background: 'none', border: '1.5px solid rgba(255,255,255,0.85)', borderRadius: 9999, color: 'rgba(255,255,255,0.85)', padding: '8px clamp(14px, 4vw, 22px)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap', minWidth: 'clamp(72px, 18vw, 88px)', textAlign: 'center' }}
+              >
+                Draw
+              </button>
+            </div>
+          </>
         )}
 
         {/* Color picker dim background — lives in GameBoard so it outlasts ColorPicker unmount */}
