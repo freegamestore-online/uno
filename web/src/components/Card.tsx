@@ -26,7 +26,7 @@ function SkipIcon3D({ isCenter }: { isCenter?: boolean }) {
   const inW = isCenter ? 5.5 : 8;
   return (
     <g transform={`scale(${scale})`}>
-      {shadows.map(([dx, dy], i) => (
+      {shadows.map(([dx = 0, dy = 0], i) => (
         <g key={`skip-shadow-${i}`} transform={`translate(${dx / scale}, ${dy / scale})`}>
           <circle cx="0" cy="0" r="22" fill="none" stroke="#000" strokeWidth={outW} />
           <line x1="-16" y1="-16" x2="16" y2="16" stroke="#000" strokeWidth={outW} />
@@ -48,7 +48,7 @@ function ReverseIcon3D({ isCenter }: { isCenter?: boolean }) {
   const path = "M 24 -23 L 0 -23 A 23 23 0 0 0 -23 0 L -7 0 A 7 7 0 0 1 0 -7 L 24 -7 L 24 5 L 48 -15 L 24 -35 Z";
   return (
     <g transform={`scale(${scale}) rotate(-45)`}>
-      {shadows.map(([dx, dy], i) => (
+      {shadows.map(([dx = 0, dy = 0], i) => (
         <g key={`rev-shadow-${i}`} transform={`translate(${dx / scale}, ${dy / scale})`}>
           <path d={path} fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />
           <path d={path} transform="rotate(180)" fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />

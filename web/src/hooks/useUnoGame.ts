@@ -10,6 +10,7 @@ import {
   isPlayable,
   cpuChooseCard,
   cpuChooseColor,
+  shuffle,
 } from '../lib/uno';
 import type { GameState } from '../lib/uno';
 
@@ -55,7 +56,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
         return { ...prev, phase: 'color-pick', pendingCardId: cardId };
       }
-      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null };
+      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -67,7 +68,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     setState(prev => {
       if (prev.phase !== 'color-pick' || !prev.pendingCardId) return prev;
       const next = playCard(prev, prev.pendingCardId, color);
-      return { ...next, pendingCardId: null, drawnCard: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
+      return { ...next, pendingCardId: null, drawnCard: null, cpuPendingPlay: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -96,7 +97,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: [...p.hand, drawn] } : p);
       const n = players.length;
       const next = ((prev.currentPlayer + prev.direction) % n + n) % n;
-      return { ...prev, deck, discard, players, currentPlayer: next, pendingCardId: null, drawnCard: null };
+      return { ...prev, deck, discard, players, currentPlayer: next, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -113,7 +114,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
         return { ...stateWithCard, phase: 'color-pick', pendingCardId: c.id };
       }
-      return { ...playCard(stateWithCard, c.id, chosenColor), pendingCardId: null, drawnCard: null };
+      return { ...playCard(stateWithCard, c.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -128,7 +129,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: [...p.hand, card] } : p);
       const n = players.length;
       const next = ((prev.currentPlayer + prev.direction) % n + n) % n;
-      return { ...prev, players, currentPlayer: next, pendingCardId: null, drawnCard: null };
+      return { ...prev, players, currentPlayer: next, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
