@@ -154,10 +154,10 @@ function CounterSlot() {
   return (
     <>
       {digits.map((d, i) => (
-        <span key={`pos-${i}`} style={{ display: 'inline-block', clipPath: 'inset(0 0 0.2em 0)' }}>
+        <span key={`pos-${i}`} className="inline-block [clip-path:inset(0_0_0.2em_0)]">
           <span
             key={`${i}-${d}`}
-            style={{ display: 'inline-block', animation: 'num-slide-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both' }}
+            className="inline-block [animation:num-slide-up_0.28s_cubic-bezier(0.22,1,0.36,1)_both]"
           >
             {d}
           </span>
@@ -260,29 +260,28 @@ export default function App() {
       >
         {screen === 'about' ? (
           <>
-            <h2 className="font-serif font-extrabold text-white m-0" style={{ fontSize: 'clamp(26px, 6vw, 34px)', animation: 'fade-up 0.4s ease both', animationDelay: '0.05s' }}>About</h2>
+            <h2 className="font-serif font-extrabold text-white m-0 text-[clamp(26px,6vw,34px)] [animation:fade-up_0.4s_ease_both] [animation-delay:0.05s]">About</h2>
 
-            <p className="font-sans text-white/55 text-center m-0 leading-relaxed max-w-[300px]" style={{ fontSize: 'clamp(13px, 3.5vw, 15px)', animation: 'fade-up 0.4s ease both', animationDelay: '0.1s' }}>
+            <p className="font-sans text-white/55 text-center m-0 leading-relaxed max-w-[300px] text-[clamp(13px,3.5vw,15px)] [animation:fade-up_0.4s_ease_both] [animation-delay:0.1s]">
               "Just one more round."<br />(Said <CounterSlot /> ago.)
             </p>
 
-            <a href="https://www.linkedin.com/in/dawson-huang/" className="flex items-center gap-2 no-underline group" style={{ animation: 'fade-up 0.4s ease both', animationDelay: '0.15s' }}>
+            <a href="https://www.linkedin.com/in/dawson-huang/" className="flex items-center gap-2 no-underline group [animation:fade-up_0.4s_ease_both] [animation-delay:0.15s]">
               <span className="text-white/40 font-sans text-[13px]">Connect with me:</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0" style={{ opacity: 0.5 }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0 opacity-50">
                 <rect width="16" height="16" rx="3" fill="white" fillOpacity="0.2" />
-                <text x="8" y="12" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontSize: '9px', fontWeight: 800 }} fill="white">in</text>
+                <text x="8" y="12" textAnchor="middle" className="font-sans font-extrabold text-[9px]" fill="white">in</text>
               </svg>
               <span className="text-white/65 font-sans text-[13px] group-hover:text-white transition-colors">Dawson Huang</span>
             </a>
 
-            <a href="https://freegamestore.online" className="text-white/30 font-sans text-[12px] no-underline text-center hover:text-white/55 transition-colors" style={{ animation: 'fade-up 0.4s ease both', animationDelay: '0.2s' }}>
+            <a href="https://freegamestore.online" className="text-white/30 font-sans text-[12px] no-underline text-center hover:text-white/55 transition-colors [animation:fade-up_0.4s_ease_both] [animation-delay:0.2s]">
               Proudly a member of FreeGameStore
             </a>
 
             <button
               onClick={() => transitionTo('menu')}
-              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60"
-              style={{ background: 'none', border: 'none', padding: 4, animation: 'fade-up 0.4s ease both', animationDelay: '0.25s' }}
+              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60 bg-transparent border-0 p-1 [animation:fade-up_0.4s_ease_both] [animation-delay:0.25s]"
               aria-label="Close"
             >
               <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
@@ -295,37 +294,28 @@ export default function App() {
         ) : screen === 'setup' ? (
           <>
             {/* Title */}
-            <div className="text-center relative" style={{ animation: 'fade-up 0.5s ease both', animationDelay: '0.05s' }}>
+            <div className="text-center relative [animation:fade-up_0.5s_ease_both] [animation-delay:0.05s]">
               <p className="text-white/40 text-[12px] font-sans uppercase tracking-[0.12em] m-0 mb-[6px]">vs Computer</p>
-              <h2 className="font-serif font-extrabold m-0 text-white" style={{ fontSize: 'clamp(20px, 5vw, 28px)' }}>
+              <h2 className="font-serif font-extrabold m-0 text-white text-[clamp(20px,5vw,28px)]">
                 Choose your opponents
               </h2>
             </div>
 
             {/* Desk layout */}
-            <div className="flex flex-col items-center relative" style={{ gap: 'clamp(6px, 1.5vw, 15px)', animation: 'fade-up 0.5s ease both', animationDelay: '0.1s' }}>
+            <div className="flex flex-col items-center relative gap-[clamp(6px,1.5vw,15px)] [animation:fade-up_0.5s_ease_both] [animation-delay:0.1s]">
               <SeatSelector value={topSeat} onChange={v => { const t = v as SeatType; setTopSeat(t); saveSeatConfig(t, leftSeat, rightSeat); }} order={SEAT_TOP_ORDER} />
-              <div className="flex items-center" style={{ gap: 'clamp(6px, 1.5vw, 15px)' }}>
+              <div className="flex items-center gap-[clamp(6px,1.5vw,15px)]">
                 <SeatSelector value={leftSeat} onChange={v => { setLeftSeat(v); saveSeatConfig(topSeat, v, rightSeat); }} order={SEAT_ORDER} />
-                <div className="flex items-center justify-center" style={{
-                  width: 'clamp(130px, 34vw, 222px)', height: 'clamp(86px, 20vw, 144px)',
-                  background: 'radial-gradient(ellipse at 50% 40%, #1a5c32 0%, #0f3d20 100%)',
-                  borderRadius: 'clamp(14px, 4vw, 30px)',
-                  border: '2px solid rgba(255,255,255,0.08)',
-                  boxShadow: 'inset 0 2px 12px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.4)',
-                }}>
-                  <div className="bg-white/3 border border-white/7" style={{ width: '65%', height: '62%', borderRadius: 'clamp(8px, 2vw, 18px)' }} />
+                <div className="flex items-center justify-center w-[clamp(130px,34vw,222px)] h-[clamp(86px,20vw,144px)] rounded-[clamp(14px,4vw,30px)] border-2 border-white/[0.08] bg-[radial-gradient(ellipse_at_50%_40%,#1a5c32_0%,#0f3d20_100%)] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5),0_4px_20px_rgba(0,0,0,0.4)]">
+                  <div className="bg-white/3 border border-white/7 w-[65%] h-[62%] rounded-[clamp(8px,2vw,18px)]" />
                 </div>
                 <SeatSelector value={rightSeat} onChange={v => { setRightSeat(v); saveSeatConfig(topSeat, leftSeat, v); }} order={SEAT_ORDER} />
               </div>
-              <div className="flex items-center justify-center text-white font-bold font-sans border-2 border-white/20 bg-white/8" style={{
-                width: 'clamp(72px, 20vw, 120px)', height: 'clamp(36px, 8vw, 54px)',
-                borderRadius: 'clamp(6px, 1.5vw, 12px)', fontSize: 'clamp(12px, 3.5vw, 16px)',
-              }}>You</div>
+              <div className="flex items-center justify-center text-white font-bold font-sans border-2 border-white/20 bg-white/8 w-[clamp(72px,20vw,120px)] h-[clamp(36px,8vw,54px)] rounded-[clamp(6px,1.5vw,12px)] text-[clamp(12px,3.5vw,16px)]">You</div>
             </div>
 
             {/* Difficulty legend */}
-            <div className="flex gap-[14px] relative" style={{ animation: 'fade-up 0.5s ease both', animationDelay: '0.15s' }}>
+            <div className="flex gap-[14px] relative [animation:fade-up_0.5s_ease_both] [animation-delay:0.15s]">
               {(['Alpha', 'Beta', 'Gamma'] as SeatType[]).map(t => (
                 <div key={t} className="flex items-center gap-[5px]">
                   <div className="w-2 h-2 rounded-full" style={{ background: SEAT_COLORS[t] }} />
@@ -335,11 +325,10 @@ export default function App() {
             </div>
 
             {/* Play button */}
-            <div className="relative" style={{ animation: 'fade-up 0.5s ease both', animationDelay: '0.2s' }}>
+            <div className="relative [animation:fade-up_0.5s_ease_both] [animation-delay:0.2s]">
               <button
                 onClick={() => { opponentsRef.current = resolveOpponents(topSeat, leftSeat, rightSeat); transitionTo('playing'); }}
-                className="text-white font-serif font-extrabold text-base cursor-pointer rounded-[14px]"
-                style={{ padding: '12px 40px', background: 'linear-gradient(160deg, #dc2626 0%, #991b1b 100%)', border: '2px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 20px rgba(220,38,38,0.4)', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
+                className="text-white font-serif font-extrabold text-base cursor-pointer rounded-[14px] py-3 px-[40px] bg-[linear-gradient(160deg,#dc2626_0%,#991b1b_100%)] border-2 border-white/20 shadow-[0_4px_20px_rgba(220,38,38,0.4)] transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(220,38,38,0.6)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(220,38,38,0.4)'; }}
               >Play</button>
@@ -349,7 +338,7 @@ export default function App() {
         ) : (
           <>
             {/* Logo */}
-            <div className="text-center" style={{ animation: 'menu-card-in 0.5s ease both' }}>
+            <div className="text-center [animation:menu-card-in_0.5s_ease_both]">
               <div
                 onMouseEnter={() => { setLogoHovered(true); setGlazeKey(k => k + 1); }}
                 onMouseLeave={() => setLogoHovered(false)}
@@ -357,12 +346,12 @@ export default function App() {
                 style={{ background: 'linear-gradient(160deg, #ef4444 0%, #b91c1c 100%)', width: 148, height: 100, boxShadow: '0 8px 32px rgba(185,28,28,0.5), inset 0 2px 0 rgba(255,255,255,0.15)', transform: logoHovered ? 'rotate(-10deg) scale(1.12)' : 'rotate(-10deg)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}
               >
                 {glazeKey > 0 && (
-                  <div key={glazeKey} className="absolute pointer-events-none" style={{ top: '-20%', left: 0, width: 72, height: '140%', background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)', transform: 'skewX(-18deg)', animation: 'logo-glaze 0.55s ease forwards' }} />
+                  <div key={glazeKey} className="absolute pointer-events-none top-[-20%] left-0 w-[72px] h-[140%] bg-[linear-gradient(to_right,transparent_0%,rgba(255,255,255,0.55)_50%,transparent_100%)] [transform:skewX(-18deg)] [animation:logo-glaze_0.55s_ease_forwards]" />
                 )}
                 <svg viewBox="0 0 120 56" width="120" height="56" className="block overflow-visible">
-                  <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#facc15" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+                  <text x="62" y="47" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#000" letterSpacing="-1">UNO</text>
+                  <text x="61" y="46" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#000" letterSpacing="-1">UNO</text>
+                  <text x="59" y="44" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#facc15" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
                 </svg>
               </div>
               <p className="text-white/45 text-[13px] font-sans mt-[10px] mb-0">Classic card game</p>
@@ -383,7 +372,7 @@ export default function App() {
                   onMouseDown={e => { if (!mode.locked) e.currentTarget.style.transform = 'scale(0.96)'; }}
                   onMouseUp={e => { if (!mode.locked) e.currentTarget.style.transform = 'translateY(-6px) scale(1.03)'; }}
                 >
-                  <div className="absolute pointer-events-none" style={{ width: '130%', height: '55%', borderRadius: '50%', background: 'rgba(255,255,255,0.09)', top: '18%', left: '-15%', transform: 'rotate(-15deg)' }} />
+                  <div className="absolute pointer-events-none w-[130%] h-[55%] rounded-full bg-white/[0.09] top-[18%] left-[-15%] [transform:rotate(-15deg)]" />
                   <span className="text-[36px] leading-none relative">{mode.symbol}</span>
                   <div className="text-center relative">
                     <p className="text-white font-serif font-bold text-[15px] m-0 mb-[5px] leading-snug">{mode.label}</p>
@@ -396,13 +385,12 @@ export default function App() {
             {/* Info button */}
             <button
               onClick={() => transitionTo('about')}
-              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60"
-              style={{ background: 'none', border: 'none', padding: 4, animation: 'menu-card-in 0.5s ease both', animationDelay: '0.35s' }}
+              className="flex items-center justify-center cursor-pointer transition-opacity duration-150 hover:opacity-60 bg-transparent border-0 p-1 [animation:menu-card-in_0.5s_ease_both] [animation-delay:0.35s]"
               aria-label="About"
             >
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                 <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
-                <text x="11" y="15.5" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontSize: '12px', fontWeight: 700 }} fill="rgba(255,255,255,0.7)">i</text>
+                <text x="11" y="15.5" textAnchor="middle" className="font-sans font-bold text-[12px]" fill="rgba(255,255,255,0.7)">i</text>
               </svg>
             </button>
 

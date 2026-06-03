@@ -42,16 +42,16 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
     >
       {isCPU ? (
         <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
-          <div style={{ backfaceVisibility: 'hidden' }}>
+          <div className="[backface-visibility:hidden]">
             <Card card={{ id: 'play-back', color: 'wild', value: 'wild' }} faceDown size="md" />
           </div>
-          <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+          <div className="absolute top-0 left-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
             <Card card={card} size="md" />
           </div>
         </div>
       ) : isFromPicker ? (
         <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out reverse both' }}>
-          <div style={{ backfaceVisibility: 'hidden' }}>
+          <div className="[backface-visibility:hidden]">
             <Card card={card} size="md" />
           </div>
           <div
@@ -109,10 +109,10 @@ export function InitCardReveal({ card, onDone }: { card: UnoCard; onDone: () => 
       } as CSSProperties}
     >
       <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
-        <div style={{ backfaceVisibility: 'hidden' }}>
+        <div className="[backface-visibility:hidden]">
           <Card card={{ id: 'init-back', color: 'wild', value: 'wild' }} faceDown />
         </div>
-        <div style={{ position: 'absolute', top: 0, left: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+        <div className="absolute top-0 left-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <Card card={card} />
         </div>
       </div>
