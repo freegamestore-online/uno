@@ -1,7 +1,7 @@
 import type { Player } from '../lib/uno';
 
 const COLOR_BG: Record<string, string> = {
-  red: '#dc2626', green: '#16a34a', blue: '#2563eb', yellow: '#eab308', wild: '#7c3aed',
+  red: 'var(--uno-red)', green: 'var(--uno-green)', blue: 'var(--uno-blue)', yellow: 'var(--uno-yellow)', wild: 'var(--uno-wild)',
 };
 
 interface ActionTag { seat: number; text: string; type: string; color?: string }
@@ -35,16 +35,16 @@ export function NameTag({ player: p, idx, activeSeat, initCardRevealed, actionTa
     p.position === 'bottom' ? 'bottom center' : p.position === 'top' ? 'top center' :
     p.position === 'left'   ? 'left center'   : p.position === 'right' ? 'right center' : 'center';
 
-  let textColor = isActive ? '#000000' : 'rgba(255,255,255,0.4)';
-  if (unoCalled && !isPunished) textColor = isActive ? '#ffffff' : '#f472b6';
-  if (unoTagActive) textColor = '#f472b6';
-  if (isBusted) textColor = '#000000';
-  if (bustPopActive) textColor = '#eab308';
-  if (isGotcha) textColor = '#ffffff';
+  let textColor = isActive ? 'black' : 'rgba(255,255,255,0.4)';
+  if (unoCalled && !isPunished) textColor = isActive ? 'white' : 'var(--uno-pink)';
+  if (unoTagActive) textColor = 'var(--uno-pink)';
+  if (isBusted) textColor = 'black';
+  if (bustPopActive) textColor = 'var(--uno-yellow)';
+  if (isGotcha) textColor = 'white';
   if (isPunished && !isBusted && !bustPopActive && !isGotcha) {
-    if (actionTag!.type === 'challenge') textColor = '#ffffff';
-    else if (actionTag!.type === 'skip' || actionTag!.type === 'draw2' || actionTag!.type === 'wild4') textColor = '#facc15';
-    else textColor = COLOR_BG[actionTag!.color ?? 'wild'] ?? '#ffffff';
+    if (actionTag!.type === 'challenge') textColor = 'white';
+    else if (actionTag!.type === 'skip' || actionTag!.type === 'draw2' || actionTag!.type === 'wild4') textColor = 'var(--uno-gold)';
+    else textColor = COLOR_BG[actionTag!.color ?? 'wild'] ?? 'white';
   }
 
   return (
@@ -53,7 +53,7 @@ export function NameTag({ player: p, idx, activeSeat, initCardRevealed, actionTa
       className={`absolute ${posClass} px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-sans font-bold z-0${isBusted ? ' bust-glow' : ''}`}
       onClick={isBusted && onBust ? onBust : undefined}
       style={{
-        backgroundColor: isGotcha ? '#dc2626' : bustPopActive ? 'rgba(0,0,0,0.25)' : isBusted ? '#eab308' : unoTagActive ? 'rgba(0,0,0,0.25)' : unoCalled && isActive && !isPunished ? '#f472b6' : isActive && !isPunished ? '#ffffff' : 'rgba(0,0,0,0.25)',
+        backgroundColor: isGotcha ? 'var(--uno-red)' : bustPopActive ? 'rgba(0,0,0,0.25)' : isBusted ? 'var(--uno-yellow)' : unoTagActive ? 'rgba(0,0,0,0.25)' : unoCalled && isActive && !isPunished ? 'var(--uno-pink)' : isActive && !isPunished ? 'white' : 'rgba(0,0,0,0.25)',
         color: textColor,
         boxShadow: isGotcha ? '0 0 16px rgba(220,38,38,0.5)' : isBusted ? undefined : isActive && !isPunished && !unoCalled ? '0 0 16px rgba(255,255,255,0.3)' : unoCalled && isActive ? '0 0 16px rgba(244,114,182,0.5)' : 'inset 0 1px 3px rgba(0,0,0,0.3)',
         transition: isGotcha || bustPopActive || isBusted || isPunished || unoTagActive ? 'none' : 'all 300ms',

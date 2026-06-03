@@ -4,7 +4,7 @@ import { getDecisionZonePos, getUpperZonePos } from '../lib/boardGeometry';
 import { Z } from '../lib/zIndex';
 
 const COLOR_BG: Record<string, string> = {
-  red: '#dc2626', green: '#16a34a', blue: '#2563eb', yellow: '#eab308',
+  red: 'var(--uno-red)', green: 'var(--uno-green)', blue: 'var(--uno-blue)', yellow: 'var(--uno-yellow)',
 };
 
 interface Props {

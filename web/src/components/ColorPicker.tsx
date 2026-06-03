@@ -4,10 +4,10 @@ import { Card } from './Card';
 import { Z } from '../lib/zIndex';
 
 const SECTORS = [
-  { color: 'blue'   as CardColor, fill: '#2563eb', points: '0,0 74.92,-185.44 200,-200 200,0' },
-  { color: 'green'  as CardColor, fill: '#16a34a', points: '0,0 200,0 200,200 -74.92,185.44' },
-  { color: 'yellow' as CardColor, fill: '#eab308', points: '0,0 -74.92,185.44 -200,200 -200,0' },
-  { color: 'red'    as CardColor, fill: '#dc2626', points: '0,0 -200,0 -200,-200 74.92,-185.44' },
+  { color: 'blue'   as CardColor, fill: 'var(--uno-blue)',   points: '0,0 74.92,-185.44 200,-200 200,0' },
+  { color: 'green'  as CardColor, fill: 'var(--uno-green)',  points: '0,0 200,0 200,200 -74.92,185.44' },
+  { color: 'yellow' as CardColor, fill: 'var(--uno-yellow)', points: '0,0 -74.92,185.44 -200,200 -200,0' },
+  { color: 'red'    as CardColor, fill: 'var(--uno-red)',    points: '0,0 -200,0 -200,-200 74.92,-185.44' },
 ];
 
 interface Props {
@@ -56,7 +56,7 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
           </div>
 
           <div
-            className="absolute inset-0 rounded-lg border-[3px] border-white overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.6)] pointer-events-auto bg-[#0a0a0a]"
+            className="absolute inset-0 rounded-lg border-[3px] border-white overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.6)] pointer-events-auto bg-[var(--uno-ink)]"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
@@ -90,10 +90,10 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
               </g>
 
               <g transform="translate(50, 72.5)">
-                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-top" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
                 </text>
-                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-bot" startOffset="76%" textAnchor="middle">COLOR</textPath>
                 </text>
               </g>

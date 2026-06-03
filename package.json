@@ -2,13 +2,22 @@
   "name": "uno",
   "private": true,
   "packageManager": "pnpm@10.30.3",
-  "engines": { "node": ">=22" },
-  "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
   "scripts": {
     "dev": "pnpm --filter @uno/web dev",
     "build": "pnpm --filter @uno/web build",
     "preview": "pnpm --filter @uno/web preview",
     "typecheck": "pnpm --filter @uno/web exec tsc -b",
     "test": "pnpm --filter @uno/web test"
+  },
+  "dependencies": {
+    "@freegamestore/games": "^0.14.0"
   }
 }

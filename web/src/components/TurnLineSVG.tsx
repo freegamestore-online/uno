@@ -34,7 +34,7 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
     : `${turnLine.length} 3000 0 0`;
   const isWild4 = pendingAction?.type === 'wild4';
   const isWild = !!wildTravelColor && turnLine.traveling;
-  const wildColor = wildTravelColor ?? '#ffffff';
+  const wildColor = wildTravelColor ?? 'white';
   const transition = turnLine.traveling
     ? 'stroke-dashoffset 450ms linear, stroke-dasharray 450ms linear, opacity 50ms'
     : 'opacity 200ms ease-out';
@@ -89,7 +89,7 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
       {isWild4 ? (
         <path
           {...commonProps}
-          stroke="#dc2626"
+          stroke="var(--uno-red)"
           strokeWidth="3"
           style={{
             transition,
@@ -111,7 +111,7 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
       ) : (
         <path
           {...commonProps}
-          stroke="#ffffff"
+          stroke="white"
           strokeWidth="2"
           style={{
             transition,

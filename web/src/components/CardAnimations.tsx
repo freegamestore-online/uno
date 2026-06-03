@@ -55,7 +55,7 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
             <Card card={card} size="md" />
           </div>
           <div
-            className="absolute top-0 left-0 rounded-lg border-[3px] border-white overflow-hidden bg-[#0a0a0a]"
+            className="absolute top-0 left-0 rounded-lg border-[3px] border-white overflow-hidden bg-[var(--uno-ink)]"
             style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
@@ -67,16 +67,16 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
                 <path id="arc-bot-play" d="M -46,0 A 46 72.7 0 0 0 46 0" transform="rotate(22)" />
               </defs>
               <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">
-                <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="#2563eb" />
-                <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="#16a34a" />
-                <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="#eab308" />
-                <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="#dc2626" />
+                <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="var(--uno-blue)" />
+                <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="var(--uno-green)" />
+                <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="var(--uno-yellow)" />
+                <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="var(--uno-red)" />
               </g>
               <g transform="translate(50, 72.5)">
-                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-top-play" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
                 </text>
-                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-bot-play" startOffset="76%" textAnchor="middle">COLOR</textPath>
                 </text>
               </g>

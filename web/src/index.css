@@ -38,6 +38,26 @@
   /* Fonts */
   font-family: "Manrope", system-ui, sans-serif;
 
+  /* UNO game palette — fixed values, not dark-mode adaptive */
+  --uno-red:    #dc2626;
+  --uno-green:  #16a34a;
+  --uno-blue:   #2563eb;
+  --uno-yellow: #eab308;
+  --uno-wild:   #7c3aed;
+  --uno-ink:    #0a0a0a;
+  --uno-pink:   #f472b6;
+  --uno-bg:     #0d0520;
+  --uno-felt-a: #1a5c32;
+  --uno-felt-b: #0f3d20;
+  --uno-red-a:  #ef4444;
+  --uno-red-b:  #b91c1c;
+  --uno-red-c:  #991b1b;
+  --uno-red-d:  #7f1d1d;
+  --uno-blue-d: #1e3a8a;
+  --uno-wild-d: #3b0764;
+  --uno-amber:  #d97706;
+  --uno-gold:   #facc15;
+
   /* Z-index layers (scoped to board-container isolation context) — keep in sync with src/lib/zIndex.ts */
   --z-ui-chrome:   10;
   --z-fly-air:     50;

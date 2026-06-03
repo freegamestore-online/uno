@@ -15,9 +15,15 @@ const SEAT_DIFFICULTY: Record<SeatType, Difficulty> = {
 };
 
 const SEAT_COLORS: Record<SeatType, string> = {
-  Alpha: '#dc2626',
-  Beta: '#2563eb',
-  Gamma: '#16a34a',
+  Alpha: 'var(--uno-red)',
+  Beta: 'var(--uno-blue)',
+  Gamma: 'var(--uno-green)',
+};
+
+const SEAT_BG_TINTS: Record<SeatType, string> = {
+  Alpha: 'rgba(220,38,38,0.13)',
+  Beta: 'rgba(37,99,235,0.13)',
+  Gamma: 'rgba(22,163,74,0.13)',
 };
 
 const SEAT_ORDER: SeatChoice[] = ['None', 'Alpha', 'Beta', 'Gamma'];
@@ -48,7 +54,7 @@ const MODES = [
     id: 'computer',
     label: 'vs Computer',
     sub: 'Play against CPU',
-    bg: 'linear-gradient(160deg, #dc2626 0%, #7f1d1d 100%)',
+    bg: 'linear-gradient(160deg, var(--uno-red) 0%, var(--uno-red-d) 100%)',
     symbol: '🤖',
     locked: false,
   },
@@ -56,7 +62,7 @@ const MODES = [
     id: 'multiplayer',
     label: 'Multiplayer',
     sub: 'Coming soon',
-    bg: 'linear-gradient(160deg, #2563eb 0%, #1e3a8a 100%)',
+    bg: 'linear-gradient(160deg, var(--uno-blue) 0%, var(--uno-blue-d) 100%)',
     symbol: '👥',
     locked: true,
   },
@@ -64,7 +70,7 @@ const MODES = [
     id: 'ai',
     label: 'AI Opponent',
     sub: 'Coming soon',
-    bg: 'linear-gradient(160deg, #7c3aed 0%, #3b0764 100%)',
+    bg: 'linear-gradient(160deg, var(--uno-wild) 0%, var(--uno-wild-d) 100%)',
     symbol: '✨',
     locked: true,
   },
@@ -90,11 +96,11 @@ function saveSeatConfig(top: SeatType, left: SeatChoice, right: SeatChoice) {
 }
 
 const SHAPES = [
-  { color: '#dc2626', op: 0.13, w: 56, h: 80,  top: '8%',  left: '6%',  rot: '-22deg', dur: '6s',  delay: '0s' },
-  { color: '#2563eb', op: 0.10, w: 44, h: 64,  top: '15%', left: '82%', rot: '18deg',  dur: '7.5s',delay: '1s' },
-  { color: '#d97706', op: 0.12, w: 64, h: 92,  top: '62%', left: '78%', rot: '-12deg', dur: '5.5s',delay: '0.5s' },
-  { color: '#16a34a', op: 0.09, w: 40, h: 58,  top: '72%', left: '8%',  rot: '28deg',  dur: '8s',  delay: '2s' },
-  { color: '#facc15', op: 0.07, w: 50, h: 72,  top: '40%', left: '88%', rot: '-6deg',  dur: '6.5s',delay: '1.5s' },
+  { color: 'var(--uno-red)',   bg: 'rgba(220,38,38,0.13)',  w: 56, h: 80,  top: '8%',  left: '6%',  rot: '-22deg', dur: '6s',  delay: '0s' },
+  { color: 'var(--uno-blue)',  bg: 'rgba(37,99,235,0.10)',  w: 44, h: 64,  top: '15%', left: '82%', rot: '18deg',  dur: '7.5s',delay: '1s' },
+  { color: 'var(--uno-amber)', bg: 'rgba(217,119,6,0.12)',  w: 64, h: 92,  top: '62%', left: '78%', rot: '-12deg', dur: '5.5s',delay: '0.5s' },
+  { color: 'var(--uno-green)', bg: 'rgba(22,163,74,0.09)',  w: 40, h: 58,  top: '72%', left: '8%',  rot: '28deg',  dur: '8s',  delay: '2s' },
+  { color: 'var(--uno-gold)',  bg: 'rgba(250,204,21,0.07)', w: 50, h: 72,  top: '40%', left: '88%', rot: '-6deg',  dur: '6.5s',delay: '1.5s' },
 ];
 
 function SeatSelector({ value, onChange, order }: {
@@ -104,6 +110,7 @@ function SeatSelector({ value, onChange, order }: {
 }) {
   const isNone = value === 'None';
   const color = isNone ? 'rgba(255,255,255,0.12)' : SEAT_COLORS[value as SeatType];
+  const bgTint = isNone ? 'rgba(255,255,255,0.04)' : SEAT_BG_TINTS[value as SeatType];
   const next = () => {
     const idx = order.indexOf(value);
     onChange(order[(idx + 1) % order.length] as SeatChoice);
@@ -116,7 +123,7 @@ function SeatSelector({ value, onChange, order }: {
         width: 'clamp(72px, 20vw, 120px)',
         height: 'clamp(52px, 13vw, 84px)',
         borderRadius: 'clamp(8px, 2vw, 15px)',
-        background: isNone ? 'rgba(255,255,255,0.04)' : `${color}22`,
+        background: bgTint,
         border: `2px solid ${isNone ? 'rgba(255,255,255,0.12)' : color}`,
         gap: 4,
       }}
@@ -127,7 +134,7 @@ function SeatSelector({ value, onChange, order }: {
         className="font-serif font-extrabold leading-none"
         style={{
           fontSize: 'clamp(12px, 3.5vw, 17px)',
-          color: isNone ? 'rgba(255,255,255,0.3)' : '#fff',
+          color: isNone ? 'rgba(255,255,255,0.3)' : 'white',
         }}
       >
         {isNone ? '＋' : value}
@@ -212,7 +219,7 @@ export default function App() {
   return (
     <GameShell topbar={topbar}>
       {/* Persistent background — inside GameShell so it's never unmounted */}
-      <div className="absolute inset-0 bg-[#0d0520] overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 bg-[var(--uno-bg)] overflow-hidden pointer-events-none">
         {[
           { c: 'rgba(220,38,38,0.35)',  top: '-10%', left: '-10%', dur: '9s',  delay: '0s'   },
           { c: 'rgba(124,58,237,0.3)',  top: '60%',  left: '60%',  dur: '11s', delay: '2s'   },
@@ -231,7 +238,7 @@ export default function App() {
           <div key={i} className="absolute rounded-lg" style={{
             width: s.w, height: s.h,
             border: `2px solid ${s.color}`,
-            background: `${s.color}22`,
+            background: s.bg,
             top: s.top, left: s.left,
             '--rot': s.rot,
             transform: `rotate(${s.rot})`,
@@ -306,7 +313,7 @@ export default function App() {
               <SeatSelector value={topSeat} onChange={v => { const t = v as SeatType; setTopSeat(t); saveSeatConfig(t, leftSeat, rightSeat); }} order={SEAT_TOP_ORDER} />
               <div className="flex items-center gap-[clamp(6px,1.5vw,15px)]">
                 <SeatSelector value={leftSeat} onChange={v => { setLeftSeat(v); saveSeatConfig(topSeat, v, rightSeat); }} order={SEAT_ORDER} />
-                <div className="flex items-center justify-center w-[clamp(130px,34vw,222px)] h-[clamp(86px,20vw,144px)] rounded-[clamp(14px,4vw,30px)] border-2 border-white/[0.08] bg-[radial-gradient(ellipse_at_50%_40%,#1a5c32_0%,#0f3d20_100%)] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5),0_4px_20px_rgba(0,0,0,0.4)]">
+                <div className="flex items-center justify-center w-[clamp(130px,34vw,222px)] h-[clamp(86px,20vw,144px)] rounded-[clamp(14px,4vw,30px)] border-2 border-white/[0.08] bg-[radial-gradient(ellipse_at_50%_40%,var(--uno-felt-a)_0%,var(--uno-felt-b)_100%)] shadow-[inset_0_2px_12px_rgba(0,0,0,0.5),0_4px_20px_rgba(0,0,0,0.4)]">
                   <div className="bg-white/3 border border-white/7 w-[65%] h-[62%] rounded-[clamp(8px,2vw,18px)]" />
                 </div>
                 <SeatSelector value={rightSeat} onChange={v => { setRightSeat(v); saveSeatConfig(topSeat, leftSeat, v); }} order={SEAT_ORDER} />
@@ -328,7 +335,7 @@ export default function App() {
             <div className="relative [animation:fade-up_0.5s_ease_both] [animation-delay:0.2s]">
               <button
                 onClick={() => { opponentsRef.current = resolveOpponents(topSeat, leftSeat, rightSeat); transitionTo('playing'); }}
-                className="text-white font-serif font-extrabold text-base cursor-pointer rounded-[14px] py-3 px-[40px] bg-[linear-gradient(160deg,#dc2626_0%,#991b1b_100%)] border-2 border-white/20 shadow-[0_4px_20px_rgba(220,38,38,0.4)] transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+                className="text-white font-serif font-extrabold text-base cursor-pointer rounded-[14px] py-3 px-[40px] bg-[linear-gradient(160deg,var(--uno-red)_0%,var(--uno-red-c)_100%)] border-2 border-white/20 shadow-[0_4px_20px_rgba(220,38,38,0.4)] transition-all duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(220,38,38,0.6)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(220,38,38,0.4)'; }}
               >Play</button>
@@ -343,15 +350,15 @@ export default function App() {
                 onMouseEnter={() => { setLogoHovered(true); setGlazeKey(k => k + 1); }}
                 onMouseLeave={() => setLogoHovered(false)}
                 className="inline-flex items-center justify-center rounded-[50%] overflow-hidden relative cursor-default"
-                style={{ background: 'linear-gradient(160deg, #ef4444 0%, #b91c1c 100%)', width: 148, height: 100, boxShadow: '0 8px 32px rgba(185,28,28,0.5), inset 0 2px 0 rgba(255,255,255,0.15)', transform: logoHovered ? 'rotate(-10deg) scale(1.12)' : 'rotate(-10deg)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}
+                style={{ background: 'linear-gradient(160deg, var(--uno-red-a) 0%, var(--uno-red-b) 100%)', width: 148, height: 100, boxShadow: '0 8px 32px rgba(185,28,28,0.5), inset 0 2px 0 rgba(255,255,255,0.15)', transform: logoHovered ? 'rotate(-10deg) scale(1.12)' : 'rotate(-10deg)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}
               >
                 {glazeKey > 0 && (
                   <div key={glazeKey} className="absolute pointer-events-none top-[-20%] left-0 w-[72px] h-[140%] bg-[linear-gradient(to_right,transparent_0%,rgba(255,255,255,0.55)_50%,transparent_100%)] [transform:skewX(-18deg)] [animation:logo-glaze_0.55s_ease_forwards]" />
                 )}
                 <svg viewBox="0 0 120 56" width="120" height="56" className="block overflow-visible">
-                  <text x="62" y="47" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="61" y="46" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="59" y="44" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="#facc15" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+                  <text x="62" y="47" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="black" letterSpacing="-1">UNO</text>
+                  <text x="61" y="46" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="black" letterSpacing="-1">UNO</text>
+                  <text x="59" y="44" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="var(--uno-gold)" stroke="black" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
                 </svg>
               </div>
               <p className="text-white/45 text-[13px] font-sans mt-[10px] mb-0">Classic card game</p>

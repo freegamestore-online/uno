@@ -2,11 +2,11 @@ import { useId } from 'react';
 import { UnoCard, effectiveColor } from '../lib/uno';
 
 const COLOR_BG: Record<string, string> = {
-  red: '#dc2626',
-  green: '#16a34a',
-  blue: '#2563eb',
-  yellow: '#eab308',
-  wild: '#0a0a0a',
+  red: 'var(--uno-red)',
+  green: 'var(--uno-green)',
+  blue: 'var(--uno-blue)',
+  yellow: 'var(--uno-yellow)',
+  wild: 'var(--uno-ink)',
 };
 
 const LABEL: Record<string, string> = {
@@ -28,14 +28,14 @@ function SkipIcon3D({ isCenter }: { isCenter?: boolean }) {
     <g transform={`scale(${scale})`}>
       {shadows.map(([dx = 0, dy = 0], i) => (
         <g key={`skip-shadow-${i}`} transform={`translate(${dx / scale}, ${dy / scale})`}>
-          <circle cx="0" cy="0" r="22" fill="none" stroke="#000" strokeWidth={outW} />
-          <line x1="-16" y1="-16" x2="16" y2="16" stroke="#000" strokeWidth={outW} />
+          <circle cx="0" cy="0" r="22" fill="none" stroke="black" strokeWidth={outW} />
+          <line x1="-16" y1="-16" x2="16" y2="16" stroke="black" strokeWidth={outW} />
         </g>
       ))}
-      <circle cx="0" cy="0" r="22" fill="none" stroke="#000" strokeWidth={outW} />
-      <line x1="-16" y1="-16" x2="16" y2="16" stroke="#000" strokeWidth={outW} />
-      <circle cx="0" cy="0" r="22" fill="none" stroke="#fff" strokeWidth={inW} />
-      <line x1="-16" y1="-16" x2="16" y2="16" stroke="#fff" strokeWidth={inW} />
+      <circle cx="0" cy="0" r="22" fill="none" stroke="black" strokeWidth={outW} />
+      <line x1="-16" y1="-16" x2="16" y2="16" stroke="black" strokeWidth={outW} />
+      <circle cx="0" cy="0" r="22" fill="none" stroke="white" strokeWidth={inW} />
+      <line x1="-16" y1="-16" x2="16" y2="16" stroke="white" strokeWidth={inW} />
     </g>
   );
 }
@@ -50,14 +50,14 @@ function ReverseIcon3D({ isCenter }: { isCenter?: boolean }) {
     <g transform={`scale(${scale}) rotate(-45)`}>
       {shadows.map(([dx = 0, dy = 0], i) => (
         <g key={`rev-shadow-${i}`} transform={`translate(${dx / scale}, ${dy / scale})`}>
-          <path d={path} fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />
-          <path d={path} transform="rotate(180)" fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />
+          <path d={path} fill="black" stroke="black" strokeWidth={outW} strokeLinejoin="round" />
+          <path d={path} transform="rotate(180)" fill="black" stroke="black" strokeWidth={outW} strokeLinejoin="round" />
         </g>
       ))}
-      <path d={path} fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />
-      <path d={path} transform="rotate(180)" fill="#000" stroke="#000" strokeWidth={outW} strokeLinejoin="round" />
-      <path d={path} fill="#fff" stroke="#000" strokeWidth={inW} strokeLinejoin="round" paintOrder="stroke fill" />
-      <path d={path} transform="rotate(180)" fill="#fff" stroke="#000" strokeWidth={inW} strokeLinejoin="round" paintOrder="stroke fill" />
+      <path d={path} fill="black" stroke="black" strokeWidth={outW} strokeLinejoin="round" />
+      <path d={path} transform="rotate(180)" fill="black" stroke="black" strokeWidth={outW} strokeLinejoin="round" />
+      <path d={path} fill="white" stroke="black" strokeWidth={inW} strokeLinejoin="round" paintOrder="stroke fill" />
+      <path d={path} transform="rotate(180)" fill="white" stroke="black" strokeWidth={inW} strokeLinejoin="round" paintOrder="stroke fill" />
     </g>
   );
 }
@@ -75,10 +75,10 @@ function WildIcon3D({ clipId }: { clipId: string }) {
         </clipPath>
       </defs>
       <g clipPath={`url(#${clipId})`}>
-        <polygon points="0,0 14.98,-37.09 40,-40 40,0" fill="#2563eb" />
-        <polygon points="0,0 40,0 40,40 -14.98,37.09" fill="#16a34a" />
-        <polygon points="0,0 -14.98,37.09 -40,40 -40,0" fill="#eab308" />
-        <polygon points="0,0 -40,0 -40,-40 14.98,-37.09" fill="#dc2626" />
+        <polygon points="0,0 14.98,-37.09 40,-40 40,0" fill="var(--uno-blue)" />
+        <polygon points="0,0 40,0 40,40 -14.98,37.09" fill="var(--uno-green)" />
+        <polygon points="0,0 -14.98,37.09 -40,40 -40,0" fill="var(--uno-yellow)" />
+        <polygon points="0,0 -40,0 -40,-40 14.98,-37.09" fill="var(--uno-red)" />
       </g>
     </g>
   );
@@ -98,12 +98,12 @@ function Text3D({ text, fontSize, isCenter }: { text: string; fontSize: number; 
     <g transform={`translate(0, ${yOffset})`}>
       {shadows.map(([dx, dy], i) => (
         <g key={`text-shadow-${i}`} transform={`translate(${dx}, ${dy})`}>
-          {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="#000" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round" />}
-          <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="#000" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round">{text}</text>
+          {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="black" stroke="black" strokeWidth={strokeW} strokeLinejoin="round" />}
+          <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="black" stroke="black" strokeWidth={strokeW} strokeLinejoin="round">{text}</text>
         </g>
       ))}
-      {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="#fff" stroke="#000" strokeWidth={rectStrokeW} strokeLinejoin="round" paintOrder="stroke fill" />}
-      <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="#fff" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round" paintOrder="stroke fill">{text}</text>
+      {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="white" stroke="black" strokeWidth={rectStrokeW} strokeLinejoin="round" paintOrder="stroke fill" />}
+      <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="white" stroke="black" strokeWidth={strokeW} strokeLinejoin="round" paintOrder="stroke fill">{text}</text>
     </g>
   );
 }
@@ -121,7 +121,7 @@ interface Props {
 export function Card({ card, faceDown, playable, selected, onClick, size = 'md', thick }: Props) {
   const uid = useId();
   const color = effectiveColor(card);
-  const bg = card.value === 'wild4' && card.chosenColor ? COLOR_BG[card.chosenColor] : card.color === 'wild' ? COLOR_BG['wild'] : (COLOR_BG[color] ?? '#7c3aed');
+  const bg = card.value === 'wild4' && card.chosenColor ? COLOR_BG[card.chosenColor] : card.color === 'wild' ? COLOR_BG['wild'] : (COLOR_BG[color] ?? 'var(--uno-wild)');
   const label = LABEL[card.value] ?? card.value;
 
   // Width via CSS variable (defined on the game board root); height via aspect-ratio
@@ -137,22 +137,22 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
   if (faceDown) {
     return (
       <div
-        className={`rounded-lg ${thick ? 'border-[4px]' : 'border-[3px]'} border-white shrink-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]`}
+        className={`rounded-lg ${thick ? 'border-[4px]' : 'border-[3px]'} border-white shrink-0 flex items-center justify-center overflow-hidden bg-[var(--uno-ink)]`}
         style={{ width: cardW, aspectRatio: '1 / 1.45', boxShadow: '0 0 0 1px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.2)' }}
       >
         <div
           className="rounded-[50%] flex items-center justify-center shrink-0 -rotate-[15deg]"
           style={{
-            background: 'linear-gradient(160deg, #ef4444 0%, #b91c1c 100%)',
+            background: 'linear-gradient(160deg, var(--uno-red-a) 0%, var(--uno-red-b) 100%)',
             width: '92%',
             height: '38%',
             boxShadow: '0 2px 8px rgba(185,28,28,0.6)',
           }}
         >
           <svg viewBox="0 0 120 56" width="100%" height="100%" className="block overflow-visible">
-            <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#000" letterSpacing="-1">UNO</text>
-            <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#000" letterSpacing="-1">UNO</text>
-            <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#eab308" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+            <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="black" letterSpacing="-1">UNO</text>
+            <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="black" letterSpacing="-1">UNO</text>
+            <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="var(--uno-yellow)" stroke="black" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
           </svg>
         </div>
       </div>
@@ -184,7 +184,7 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
       ) : card.color === 'wild' ? (
         <div
           className="absolute w-[80%] h-[92%] rounded-[50%] rotate-[22deg]"
-          style={{ background: 'conic-gradient(#2563eb 0deg 68deg, #16a34a 68deg 180deg, #eab308 180deg 248deg, #dc2626 248deg 360deg)' }}
+          style={{ background: 'conic-gradient(var(--uno-blue) 0deg 68deg, var(--uno-green) 68deg 180deg, var(--uno-yellow) 180deg 248deg, var(--uno-red) 248deg 360deg)' }}
         />
       ) : (
         <div className="absolute w-[80%] h-[92%] rounded-[50%] bg-white/20 rotate-[22deg]" />
@@ -210,17 +210,17 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
               [0,1], [1,0], [1,2], [2,1], [2,2], [2,3], [3,2], [3,3], [3,4], [4,3], [4,4],
               [4,5], [5,4], [5,5], [5,6], [6,5], [6,6]
             ].map(([dx, dy], i) => (
-              <g key={`w4-shadow-${i}`} transform={`translate(${dx}, ${dy})`} fill="#000" stroke="#000" strokeWidth="2.5" strokeLinejoin="round">
+              <g key={`w4-shadow-${i}`} transform={`translate(${dx}, ${dy})`} fill="black" stroke="black" strokeWidth="2.5" strokeLinejoin="round">
                 <rect x="-31" y="2"   width="20" height="29" rx="3" />
                 <rect x="8"   y="-30" width="20" height="29" rx="3" />
                 <rect x="-5"  y="-8"  width="20" height="29" rx="3" />
                 <rect x="-18" y="-20" width="20" height="29" rx="3" />
               </g>
             ))}
-            <rect x="-31" y="2"   width="20" height="29" rx="3" fill="#eab308" />
-            <rect x="8"   y="-30" width="20" height="29" rx="3" fill="#16a34a" />
-            <rect x="-5"  y="-8"  width="20" height="29" rx="3" fill="#2563eb" />
-            <rect x="-18" y="-20" width="20" height="29" rx="3" fill="#dc2626" />
+            <rect x="-31" y="2"   width="20" height="29" rx="3" fill="var(--uno-yellow)" />
+            <rect x="8"   y="-30" width="20" height="29" rx="3" fill="var(--uno-green)" />
+            <rect x="-5"  y="-8"  width="20" height="29" rx="3" fill="var(--uno-blue)" />
+            <rect x="-18" y="-20" width="20" height="29" rx="3" fill="var(--uno-red)" />
           </g>
         ) : card.value === 'draw2' ? (
           <g transform="translate(50, 72.5)">
@@ -230,9 +230,9 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
                 [0,1], [1,0], [1,2], [2,1], [2,2], [2,3], [3,2], [3,3], [3,4], [4,3], [4,4],
                 [4,5], [5,4], [5,5], [5,6], [6,5], [6,6]
               ].map(([dx, dy], i) => (
-                <rect key={`c1-ext-${i}`} x="-23" y="-13" width="32" height="46" rx="4" fill="#000" stroke="#000" strokeWidth="2.5" strokeLinejoin="round" transform={`translate(${dx}, ${dy})`} />
+                <rect key={`c1-ext-${i}`} x="-23" y="-13" width="32" height="46" rx="4" fill="black" stroke="black" strokeWidth="2.5" strokeLinejoin="round" transform={`translate(${dx}, ${dy})`} />
               ))}
-              <rect x="-23" y="-13" width="32" height="46" rx="4" fill="#fff" stroke="#000" strokeWidth="2.5" strokeLinejoin="round" />
+              <rect x="-23" y="-13" width="32" height="46" rx="4" fill="white" stroke="black" strokeWidth="2.5" strokeLinejoin="round" />
             </g>
             <g>
               {[
@@ -240,9 +240,9 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
                 [0,1], [1,0], [1,2], [2,1], [2,2], [2,3], [3,2], [3,3], [3,4], [4,3], [4,4],
                 [4,5], [5,4], [5,5], [5,6], [6,5], [6,6]
               ].map(([dx, dy], i) => (
-                <rect key={`c2-ext-${i}`} x="-9" y="-33" width="32" height="46" rx="4" fill="#000" stroke="#000" strokeWidth="2.5" strokeLinejoin="round" transform={`translate(${dx}, ${dy})`} />
+                <rect key={`c2-ext-${i}`} x="-9" y="-33" width="32" height="46" rx="4" fill="black" stroke="black" strokeWidth="2.5" strokeLinejoin="round" transform={`translate(${dx}, ${dy})`} />
               ))}
-              <rect x="-9" y="-33" width="32" height="46" rx="4" fill="#fff" stroke="#000" strokeWidth="2.5" strokeLinejoin="round" />
+              <rect x="-9" y="-33" width="32" height="46" rx="4" fill="white" stroke="black" strokeWidth="2.5" strokeLinejoin="round" />
             </g>
           </g>
         ) : card.value === 'skip' ? (

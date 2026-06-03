@@ -20,7 +20,7 @@ import { UnoCard, OpponentConfig, topCard, isPlayable, effectiveColor, CardColor
 import { Z } from '../lib/zIndex';
 
 const COLOR_BG: Record<string, string> = {
-  red: '#dc2626', green: '#16a34a', blue: '#2563eb', yellow: '#eab308', wild: '#7c3aed',
+  red: 'var(--uno-red)', green: 'var(--uno-green)', blue: 'var(--uno-blue)', yellow: 'var(--uno-yellow)', wild: 'var(--uno-wild)',
 };
 
 interface Props {
@@ -368,13 +368,13 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
         className="absolute flex items-center justify-center"
         style={{
           inset: 0, margin: 'auto', width: 'min(88vw, 700px)', height: 'clamp(200px, 44vh, 420px)',
-          borderRadius: 32, background: 'radial-gradient(ellipse at 50% 40%, #1a5c32 0%, #0f3d20 100%)',
+          borderRadius: 32, background: 'radial-gradient(ellipse at 50% 40%, var(--uno-felt-a) 0%, var(--uno-felt-b) 100%)',
           border: '2px solid rgba(255,255,255,0.07)',
           boxShadow: 'inset 0 2px 16px rgba(0,0,0,0.5), 0 8px 40px rgba(0,0,0,0.6)',
           animation: 'fade-up 0.55s cubic-bezier(0.22,1,0.36,1) both',
         }}
       >
-        <TurnLineSVG desk={desk} displayedDir={displayedDir} dirOpacity={dirOpacity} color={COLOR_BG[topColor] ?? '#ffffff'} turnLine={turnLine} wildTravelColor={wildTravelColor} direction={state.direction} pendingAction={state.pendingAction} />
+        <TurnLineSVG desk={desk} displayedDir={displayedDir} dirOpacity={dirOpacity} color={COLOR_BG[topColor] ?? 'white'} turnLine={turnLine} wildTravelColor={wildTravelColor} direction={state.direction} pendingAction={state.pendingAction} />
         {dealLightningOffset && <DealLightningSVG deskW={desk.w} deskH={desk.h} dealLightningOffset={dealLightningOffset} />}
         {state.players.map((p, idx) => (
           <NameTag key={p.id} player={p} idx={idx} activeSeat={effectiveActiveSeat} initCardRevealed={initCardRevealed} actionTag={effectiveActionTag} unoCalled={p.id === 0 ? unoCalled : cpuUnoCalledState.has(idx)} unoTagActive={p.id === 0 ? unoTagActive : cpuUnoSeats.has(idx)} isBusted={bustedSeats.has(idx) && idx !== 0} bustPopActive={bustPopSeats.has(idx)} isGotcha={gotchaSeat === idx} onBust={bustedSeats.has(idx) && idx !== 0 ? () => handleBust(idx, 0) : undefined} />
@@ -465,7 +465,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
           <button
             disabled={!canCallUno}
             className="absolute font-sans font-bold bg-transparent border rounded-full"
-            style={{ bottom: 'clamp(10px, 2.5vh, 20px)', right: 'clamp(10px, 2.5vw, 18px)', zIndex: Z.DECISION, padding: '6px 18px', fontSize: 'clamp(13px, 3.5vw, 15px)', letterSpacing: '0.04em', borderColor: '#f472b6', color: '#f472b6', opacity: canCallUno ? 1 : 0.4, cursor: canCallUno ? 'pointer' : 'default', transform: unoFlash ? 'scale(1.15)' : 'scale(1)', transition: 'transform 150ms ease, opacity 300ms ease', boxShadow: unoFlash ? '0 0 12px rgba(244,114,182,0.6)' : 'none' }}
+            style={{ bottom: 'clamp(10px, 2.5vh, 20px)', right: 'clamp(10px, 2.5vw, 18px)', zIndex: Z.DECISION, padding: '6px 18px', fontSize: 'clamp(13px, 3.5vw, 15px)', letterSpacing: '0.04em', borderColor: 'var(--uno-pink)', color: 'var(--uno-pink)', opacity: canCallUno ? 1 : 0.4, cursor: canCallUno ? 'pointer' : 'default', transform: unoFlash ? 'scale(1.15)' : 'scale(1)', transition: 'transform 150ms ease, opacity 300ms ease', boxShadow: unoFlash ? '0 0 12px rgba(244,114,182,0.6)' : 'none' }}
             onClick={() => { setUnoCalled(true); recentUnoCalledRef.current = true; setUnoFlash(true); setUnoTagActive(true); setTimeout(() => setUnoFlash(false), 600); setTimeout(() => setUnoTagActive(false), 1400); if (inBustWindow) setBustedSeats(s => { const n = new Set(s); n.delete(0); return n; }); }}
           >
             Call UNO!
