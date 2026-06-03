@@ -70,6 +70,25 @@ const MODES = [
   },
 ];
 
+const LS_KEY = 'uno_seat_config';
+
+function loadSeatConfig(): { top: SeatType; left: SeatChoice; right: SeatChoice } {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as { top: unknown; left: unknown; right: unknown };
+      const isType = (v: unknown): v is SeatType => v === 'Alpha' || v === 'Beta' || v === 'Gamma';
+      const isChoice = (v: unknown): v is SeatChoice => v === 'None' || isType(v);
+      if (isType(p.top) && isChoice(p.left) && isChoice(p.right)) return { top: p.top, left: p.left, right: p.right };
+    }
+  } catch {}
+  return { top: 'Gamma', left: 'None', right: 'None' };
+}
+
+function saveSeatConfig(top: SeatType, left: SeatChoice, right: SeatChoice) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ top, left, right })); } catch {}
+}
+
 const SHAPES = [
   { color: '#dc2626', op: 0.13, w: 56, h: 80,  top: '8%',  left: '6%',  rot: '-22deg', dur: '6s',  delay: '0s' },
   { color: '#2563eb', op: 0.10, w: 44, h: 64,  top: '15%', left: '82%', rot: '18deg',  dur: '7.5s',delay: '1s' },
@@ -151,10 +170,10 @@ function CounterSlot() {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('menu');
-  const [topSeat, setTopSeat] = useState<SeatType>('Beta');
-  const [leftSeat, setLeftSeat] = useState<SeatChoice>('None');
-  const [rightSeat, setRightSeat] = useState<SeatChoice>('None');
-  const opponentsRef = useRef<OpponentConfig[]>([{ name: 'Beta', difficulty: 'medium', position: 'top' }]);
+  const [topSeat, setTopSeat] = useState<SeatType>(() => loadSeatConfig().top);
+  const [leftSeat, setLeftSeat] = useState<SeatChoice>(() => loadSeatConfig().left);
+  const [rightSeat, setRightSeat] = useState<SeatChoice>(() => loadSeatConfig().right);
+  const opponentsRef = useRef<OpponentConfig[]>(resolveOpponents(loadSeatConfig().top, loadSeatConfig().left, loadSeatConfig().right));
   const [gameKey, setGameKey] = useState(0);
   const [logoHovered, setLogoHovered] = useState(false);
   const [glazeKey, setGlazeKey] = useState(0);
@@ -285,9 +304,9 @@ export default function App() {
 
             {/* Desk layout */}
             <div className="flex flex-col items-center relative" style={{ gap: 'clamp(6px, 1.5vw, 15px)', animation: 'fade-up 0.5s ease both', animationDelay: '0.1s' }}>
-              <SeatSelector value={topSeat} onChange={v => setTopSeat(v as SeatType)} order={SEAT_TOP_ORDER} />
+              <SeatSelector value={topSeat} onChange={v => { const t = v as SeatType; setTopSeat(t); saveSeatConfig(t, leftSeat, rightSeat); }} order={SEAT_TOP_ORDER} />
               <div className="flex items-center" style={{ gap: 'clamp(6px, 1.5vw, 15px)' }}>
-                <SeatSelector value={leftSeat} onChange={setLeftSeat} order={SEAT_ORDER} />
+                <SeatSelector value={leftSeat} onChange={v => { setLeftSeat(v); saveSeatConfig(topSeat, v, rightSeat); }} order={SEAT_ORDER} />
                 <div className="flex items-center justify-center" style={{
                   width: 'clamp(130px, 34vw, 222px)', height: 'clamp(86px, 20vw, 144px)',
                   background: 'radial-gradient(ellipse at 50% 40%, #1a5c32 0%, #0f3d20 100%)',
@@ -297,7 +316,7 @@ export default function App() {
                 }}>
                   <div className="bg-white/3 border border-white/7" style={{ width: '65%', height: '62%', borderRadius: 'clamp(8px, 2vw, 18px)' }} />
                 </div>
-                <SeatSelector value={rightSeat} onChange={setRightSeat} order={SEAT_ORDER} />
+                <SeatSelector value={rightSeat} onChange={v => { setRightSeat(v); saveSeatConfig(topSeat, leftSeat, v); }} order={SEAT_ORDER} />
               </div>
               <div className="flex items-center justify-center text-white font-bold font-sans border-2 border-white/20 bg-white/8" style={{
                 width: 'clamp(72px, 20vw, 120px)', height: 'clamp(36px, 8vw, 54px)',
