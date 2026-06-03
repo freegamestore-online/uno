@@ -215,7 +215,6 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
                          1100 + Math.random() * 800;
       const watch = animWatchRef?.current ?? noopWatch;
       let cancelled = false;
-      console.log('[wild4] CPU victim effect fired: target=', target, 'attacker=', attacker, 'nextPlayer=', pa.nextPlayer, 'willChallenge=', willChallenge, 'shouldChallenge=', shouldChallenge, 'n=', state.players.length, 'direction=', state.direction);
       (async () => {
         await watch.waitAllAnims(); // wait for wild4 card to land before CPU reacts
         if (cancelled) return;
@@ -242,7 +241,6 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           setActionTag(null);
           await sleep(0);
           if (cancelled) return;
-          console.log('[wild4] challenge-success: setting currentPlayer=', target);
           lockBoard(1150);
           setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: target, pendingAction: null }); });
         } else if (willChallenge && !shouldChallenge) {
@@ -262,13 +260,8 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           setActionTag(null);
           await sleep(0);
           if (cancelled) return;
-          console.log('[wild4] challenge-fail: setting currentPlayer=', pa.nextPlayer, 'from pendingAction');
           lockBoard(1150);
-          setState(prev => {
-            if (!prev.pendingAction) { console.log('[wild4] challenge-fail setState: pendingAction is null!'); return prev; }
-            console.log('[wild4] challenge-fail setState: nextPlayer=', prev.pendingAction.nextPlayer, 'target=', prev.pendingAction.target, 'direction=', prev.direction, 'n=', prev.players.length);
-            return makeExt({ ...prev, currentPlayer: prev.pendingAction.nextPlayer, pendingAction: null });
-          });
+          setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: prev.pendingAction.nextPlayer, pendingAction: null }); });
         } else {
           // Accept draw 4
           setActionTag({ seat: target, text: '😭 draw 4 cards', type: 'wild4' });
@@ -284,11 +277,9 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           if (cancelled) return;
           lockBoard(1150);
           setState(prev => {
-            if (!prev.pendingAction) { console.log('[wild4] accept setState: pendingAction is null!'); return prev; }
+            if (!prev.pendingAction) return prev;
             const n = prev.players.length;
-            const tgt = prev.pendingAction.target;
-            const next = ((tgt + prev.direction) % n + n) % n;
-            console.log('[wild4] accept setState: next=', next, 'target=', tgt, 'direction=', prev.direction, 'n=', n);
+            const next = ((prev.pendingAction.target + prev.direction) % n + n) % n;
             return makeExt({ ...prev, currentPlayer: next, pendingAction: null });
           });
         }
@@ -407,7 +398,6 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     const current = state.players[state.currentPlayer];
     if (!current || current.isHuman) return;
 
-    console.log('[cpu-turn] firing for seat', state.currentPlayer, state.players[state.currentPlayer]?.name, 'activeSeat=', activeSeat);
     cpuTimerRef.current = setTimeout(() => {
       const watch = animWatchRef?.current ?? noopWatch;
       if (!cpuChooseCard(state)) {
