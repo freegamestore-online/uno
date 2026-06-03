@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, MutableRefObject } from 'react';
 import {
   CardColor,
   UnoCard,
@@ -7,6 +7,7 @@ import {
   playCard,
   drawCards,
   topCard,
+  effectiveColor,
   isPlayable,
   cpuChooseCard,
   cpuChooseColor,
@@ -18,24 +19,54 @@ interface ExtState extends GameState {
   pendingCardId: string | null;
   drawnCard: UnoCard | null;
   cpuPendingPlay: { cardId: string; chosenColor?: CardColor } | null;
+  cpuPassedSeat: number | null;
+  cpuPassedDrawnId: string | null;
 }
 
 function makeExt(s: GameState): ExtState {
-  return { ...s, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+  return { ...s, pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null };
 }
 
-export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: number | null) {
+export interface AnimWatchRef {
+  watchDraw: (playerIdx: number) => Promise<void>;
+  watchCardAnim: (cardId: string) => Promise<void>;
+  waitAllAnims: () => Promise<void>;
+}
+
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+const noopWatch: AnimWatchRef = { watchDraw: () => Promise.resolve(), watchCardAnim: () => Promise.resolve(), waitAllAnims: () => Promise.resolve() };
+
+export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: number | null, animWatchRef?: MutableRefObject<AnimWatchRef>, bustActiveRef?: MutableRefObject<boolean>) {
   const [state, setState] = useState<ExtState>(() => makeExt(initGame(opponentConfigs)));
   const [isLocked, setIsLocked] = useState(false);
   const [actionTag, setActionTag] = useState<{ seat: number; text: string; type: string; color?: CardColor } | null>(null);
+  const [cpuChallengeDecided, setCpuChallengeDecided] = useState(false);
+  const [cpuChallengeOopsKey, setCpuChallengeOopsKey] = useState(0);
   const cpuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const lockBoard = useCallback((duration = 1800) => {
+  const lockBoard = useCallback((duration = 1150) => {
     setIsLocked(true);
     if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
     lockTimerRef.current = setTimeout(() => setIsLocked(false), duration);
   }, []);
+
+  const cpuDrawWatchRef = useRef<Promise<void> | null>(null);
+
+  const lockBoardManual = useCallback(() => {
+    setIsLocked(true);
+    if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+    lockTimerRef.current = setTimeout(() => setIsLocked(false), 5000); // safety fallback
+    return () => {
+      if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+      setIsLocked(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!state.pendingAction) setCpuChallengeDecided(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.pendingAction]);
 
   const restart = useCallback((newOpponents?: OpponentConfig[]) => {
     setState(makeExt(initGame(newOpponents ?? opponentConfigs)));
@@ -134,113 +165,254 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
 
-  // 2P Reverse: show REVERSE! on actor at 720ms, clear it at 1400ms, then send turn line to opponent at 1500ms
+  // 2P Reverse: show REVERSE! on actor at 720ms, then send turn line to opponent at 1720ms
   useEffect(() => {
     if (state.pendingAction?.type === 'reverse' && state.players.length === 2) {
       const { nextPlayer, color } = state.pendingAction;
-      const t1 = setTimeout(() => {
+      let cancelled = false;
+      (async () => {
+        await sleep(720);
+        if (cancelled) return;
+        while (bustActiveRef?.current) { await sleep(50); if (cancelled) return; }
         setActionTag({ seat: nextPlayer, text: 'REVERSE!', type: 'reverse', color });
-      }, 720);
-      const t2 = setTimeout(() => {
+        await sleep(1200);
+        if (cancelled) return;
         setActionTag(null);
-        setState(prev => {
-          if (!prev.pendingAction) return prev;
-          return { ...prev, currentPlayer: prev.pendingAction.target };
-        });
-      }, 1720);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
+        await sleep(0);
+        if (cancelled) return;
+        setState(prev => { if (!prev.pendingAction) return prev; return { ...prev, currentPlayer: prev.pendingAction.target }; });
+      })();
+      return () => { cancelled = true; };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.pendingAction]);
 
   // Action phase: distinct physical animations for victims and actors
   useEffect(() => {
-    if (state.pendingAction && activeSeat === state.pendingAction.target) {
-      const { type, target, nextPlayer, color } = state.pendingAction;
-      const is2PReverse = type === 'reverse' && state.players.length === 2;
-      const isVictimPenalty = type === 'skip' || type === 'draw2' || type === 'wild4' || is2PReverse;
+    const pa = state.pendingAction;
+    if (!pa) {
+      let cancelled = false;
+      (async () => { await sleep(800); if (!cancelled) setActionTag(null); })();
+      return () => { cancelled = true; };
+    }
 
-      if (isVictimPenalty) {
-        const isSkipLike = type === 'skip' || is2PReverse;
-        const flyTime = type === 'draw2' ? (130 * 1 + 720) : type === 'wild4' ? (130 * 3 + 720) : 0;
+    const { type, target, nextPlayer, color } = pa;
 
-        if (is2PReverse) {
-          setActionTag({ seat: target, text: '🥲 skipped', type: 'skip' });
-        } else if (type === 'skip') {
+    // Wild4: trigger fires at attacker's seat (turn stays there until challenge is resolved)
+    if (type === 'wild4') {
+      const { attacker, prevColor } = pa;
+      if (attacker == null || activeSeat !== attacker) return () => {};
+      // Human victim: GameBoard shows ChallengeUI instead of auto-resolving
+      if (target === 0) return () => {};
+      // CPU victim: decide whether to challenge based on difficulty
+      const diff = state.players[target]?.difficulty ?? 'medium';
+      const attackerHand = state.players[attacker]?.hand ?? [];
+      const shouldChallenge = attackerHand.some(c => c.color === prevColor);
+      const accuracy = diff === 'hard' ? 0.90 : diff === 'medium' ? 0.60 : 0.35;
+      const willChallenge = (Math.random() < accuracy) ? shouldChallenge : !shouldChallenge;
+      const thinkDelay = diff === 'hard' ? 600 + Math.random() * 400 :
+                         diff === 'medium' ? 900 + Math.random() * 600 :
+                         1100 + Math.random() * 800;
+      const watch = animWatchRef?.current ?? noopWatch;
+      let cancelled = false;
+      console.log('[wild4] CPU victim effect fired: target=', target, 'attacker=', attacker, 'nextPlayer=', pa.nextPlayer, 'willChallenge=', willChallenge, 'shouldChallenge=', shouldChallenge, 'n=', state.players.length, 'direction=', state.direction);
+      (async () => {
+        await watch.waitAllAnims(); // wait for wild4 card to land before CPU reacts
+        if (cancelled) return;
+        while (bustActiveRef?.current) { await sleep(50); if (cancelled) return; }
+        await sleep(thinkDelay);
+        if (cancelled) return;
+        setCpuChallengeDecided(true);
+        if (willChallenge && shouldChallenge) {
+          // Challenge succeeds — attacker draws 4, CPU victim gets their turn
+          setActionTag({ seat: target, text: 'Challenge!', type: 'challenge' });
+          await sleep(350);
+          if (cancelled) return;
+          setActionTag({ seat: target, text: '🥳 Challenge Successful!', type: 'wild4' });
+          await sleep(900);
+          if (cancelled) return;
+          setActionTag({ seat: attacker, text: '🤡 draw 4 cards', type: 'wild4' });
+          await sleep(600);
+          if (cancelled) return;
+          const drawDone = watch.watchDraw(attacker);
+          setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, attacker, 4)); });
+          await drawDone;
+          await sleep(600);
+          if (cancelled) return;
+          setActionTag(null);
+          await sleep(0);
+          if (cancelled) return;
+          console.log('[wild4] challenge-success: setting currentPlayer=', target);
+          lockBoard(1150);
+          setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: target, pendingAction: null }); });
+        } else if (willChallenge && !shouldChallenge) {
+          // Challenge fails — CPU draws 6
+          setActionTag({ seat: target, text: 'Challenge!', type: 'challenge' });
+          await sleep(350);
+          if (cancelled) return;
+          setCpuChallengeOopsKey(k => k + 1);
+          setActionTag({ seat: target, text: '🤡 draw 6 cards', type: 'wild4' });
+          await sleep(600);
+          if (cancelled) return;
+          const drawDone = watch.watchDraw(target);
+          setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, target, 6)); });
+          await drawDone;
+          await sleep(600);
+          if (cancelled) return;
+          setActionTag(null);
+          await sleep(0);
+          if (cancelled) return;
+          console.log('[wild4] challenge-fail: setting currentPlayer=', pa.nextPlayer, 'from pendingAction');
+          lockBoard(1150);
+          setState(prev => {
+            if (!prev.pendingAction) { console.log('[wild4] challenge-fail setState: pendingAction is null!'); return prev; }
+            console.log('[wild4] challenge-fail setState: nextPlayer=', prev.pendingAction.nextPlayer, 'target=', prev.pendingAction.target, 'direction=', prev.direction, 'n=', prev.players.length);
+            return makeExt({ ...prev, currentPlayer: prev.pendingAction.nextPlayer, pendingAction: null });
+          });
+        } else {
+          // Accept draw 4
+          setActionTag({ seat: target, text: '😭 draw 4 cards', type: 'wild4' });
+          await sleep(600);
+          if (cancelled) return;
+          const drawDone = watch.watchDraw(target);
+          setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, target, 4)); });
+          await drawDone;
+          await sleep(600);
+          if (cancelled) return;
+          setActionTag(null);
+          await sleep(0);
+          if (cancelled) return;
+          lockBoard(1150);
+          setState(prev => {
+            if (!prev.pendingAction) { console.log('[wild4] accept setState: pendingAction is null!'); return prev; }
+            const n = prev.players.length;
+            const tgt = prev.pendingAction.target;
+            const next = ((tgt + prev.direction) % n + n) % n;
+            console.log('[wild4] accept setState: next=', next, 'target=', tgt, 'direction=', prev.direction, 'n=', n);
+            return makeExt({ ...prev, currentPlayer: next, pendingAction: null });
+          });
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+
+    // All other pending actions: trigger fires at target's seat
+    if (activeSeat !== target) return () => {};
+
+    const is2PReverse = type === 'reverse' && state.players.length === 2;
+    const isVictimPenalty = type === 'skip' || type === 'draw2' || is2PReverse;
+    const watch = animWatchRef?.current ?? noopWatch;
+    let cancelled = false;
+
+    if (isVictimPenalty) {
+      const isSkipLike = type === 'skip' || is2PReverse;
+      (async () => {
+        while (bustActiveRef?.current) { await sleep(50); if (cancelled) return; }
+        if (is2PReverse || type === 'skip') {
           setActionTag({ seat: target, text: '🥲 skipped', type: 'skip' });
         } else {
-          const text = type === 'draw2' ? '😢 draw 2 cards' : '😭 draw 4 cards';
-          setActionTag({ seat: target, text, type });
+          setActionTag({ seat: target, text: '😢 draw 2 cards', type });
         }
-
-        const t1 = setTimeout(() => {
-          if (type === 'draw2' || type === 'wild4') {
-            setState(prev => {
-              let s: GameState = { ...prev, players: prev.players.map(p => ({ ...p, hand: [...p.hand] })) };
-              if (type === 'draw2') s = drawCards(s, target, 2);
-              if (type === 'wild4') s = drawCards(s, target, 4);
-              return makeExt(s);
-            });
-          }
-        }, 600);
-
-        const baseWait = isSkipLike ? 1000 : 600 + flyTime + 100;
-        const t2 = setTimeout(() => {
-          lockBoard(1800);
+        if (isSkipLike) {
+          await sleep(1200);
+        } else {
+          await sleep(600);
+          if (cancelled) return;
+          const drawDone = watch.watchDraw(target);
           setState(prev => {
-            if (!prev.pendingAction) return prev;
-            return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null });
+            let s: GameState = { ...prev, players: prev.players.map(p => ({ ...p, hand: [...p.hand] })) };
+            if (type === 'draw2') s = drawCards(s, target, 2);
+            return makeExt(s);
           });
-        }, baseWait);
-
-        return () => { clearTimeout(t1); clearTimeout(t2); };
-      } else {
-        // Normal 3+ player Reverse & Wild — activeSeat is still on the actor
-        const text = type === 'reverse' ? 'REVERSE!' : `${color?.toUpperCase()}!`;
-
-        const t1 = setTimeout(() => {
-          setActionTag({ seat: target, text, type, color });
-        }, 720);
-
-        const t2 = setTimeout(() => {
-          lockBoard(1800);
-          setState(prev => {
-            if (!prev.pendingAction) return prev;
-            return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null });
-          });
-        }, 720 + 600);
-
-        return () => { clearTimeout(t1); clearTimeout(t2); };
-      }
-    } else if (!state.pendingAction) {
-      const t3 = setTimeout(() => setActionTag(null), 800);
-      return () => clearTimeout(t3);
+          await drawDone;
+          await sleep(600);
+        }
+        if (cancelled) return;
+        setActionTag(null);
+        await sleep(0);
+        if (cancelled) return;
+        lockBoard(1150);
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null }); });
+      })();
+    } else {
+      // Normal 3+ player Reverse & Wild
+      const text = type === 'reverse' ? 'REVERSE!' : `${color?.toUpperCase()}!`;
+      (async () => {
+        await sleep(720);
+        if (cancelled) return;
+        while (bustActiveRef?.current) { await sleep(50); if (cancelled) return; }
+        setActionTag({ seat: target, text, type, color });
+        await sleep(1000);
+        if (cancelled) return;
+        setActionTag(null);
+        await sleep(0);
+        if (cancelled) return;
+        lockBoard(1150);
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null }); });
+      })();
     }
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSeat, state.pendingAction, lockBoard]);
 
-  // CPU drew a playable card: play it after the draw animation lands (~900ms)
+  // CPU drew a playable card: play it once the draw animation lands — wait for tag to light up first
   useEffect(() => {
     if (!state.cpuPendingPlay) return;
+    if (activeSeat !== state.currentPlayer) return;
     const { cardId, chosenColor } = state.cpuPendingPlay;
-    const t = setTimeout(() => {
+    const watch = animWatchRef?.current ?? noopWatch;
+    let cancelled = false;
+    (async () => {
+      await watch.watchCardAnim(cardId);
+      if (cancelled) return;
       lockBoard();
       setState(prev => {
         if (!prev.cpuPendingPlay) return prev;
         return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
       });
-    }, 900);
-    return () => clearTimeout(t);
+    })();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.cpuPendingPlay, lockBoard]);
+  }, [state.cpuPendingPlay, activeSeat]);
+
+  // CPU drew an unplayable card: wait for draw animation, then advance turn
+  useEffect(() => {
+    if (state.cpuPassedSeat === null) return;
+    if (activeSeat !== state.cpuPassedSeat) return;
+    const seat = state.cpuPassedSeat;
+    const hasDrawn = state.cpuPassedDrawnId !== null;
+    let cancelled = false;
+    (async () => {
+      if (hasDrawn && cpuDrawWatchRef.current) {
+        await cpuDrawWatchRef.current;
+        cpuDrawWatchRef.current = null;
+      }
+      if (cancelled) return;
+      lockBoard(1150);
+      setState(prev => {
+        if (prev.cpuPassedSeat !== seat) return prev;
+        const n = prev.players.length;
+        const next = ((prev.currentPlayer + prev.direction) % n + n) % n;
+        return { ...prev, cpuPassedSeat: null, cpuPassedDrawnId: null, currentPlayer: next };
+      });
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.cpuPassedSeat, activeSeat]);
 
   // CPU turns — waits for both isLocked and activeSeat to confirm the UI has caught up
   useEffect(() => {
-    if (state.phase !== 'playing' || isLocked || activeSeat !== state.currentPlayer || state.pendingAction || state.cpuPendingPlay) return;
+    if (state.phase !== 'playing' || isLocked || activeSeat !== state.currentPlayer || state.pendingAction || state.cpuPendingPlay || state.cpuPassedSeat !== null) return;
     const current = state.players[state.currentPlayer];
     if (!current || current.isHuman) return;
 
+    console.log('[cpu-turn] firing for seat', state.currentPlayer, state.players[state.currentPlayer]?.name, 'activeSeat=', activeSeat);
     cpuTimerRef.current = setTimeout(() => {
+      const watch = animWatchRef?.current ?? noopWatch;
+      if (!cpuChooseCard(state)) {
+        cpuDrawWatchRef.current = watch.watchDraw(state.currentPlayer);
+      }
       lockBoard();
       setState(prev => {
         if (prev.phase !== 'playing') return prev;
@@ -249,17 +421,17 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
 
         const card = cpuChooseCard(prev);
         if (!card) {
+          const prevHandLen = prev.players[prev.currentPlayer]?.hand.length ?? 0;
           const s = drawCards(prev, prev.currentPlayer, 1);
-          const drawn = s.players[prev.currentPlayer]?.hand.at(-1);
+          const newHand = s.players[prev.currentPlayer]?.hand ?? [];
+          const drawn = newHand.length > prevHandLen ? newHand.at(-1) : null;
           if (drawn && isPlayable(drawn, topCard(s))) {
             const chosenColor = drawn.value === 'wild' || drawn.value === 'wild4'
               ? cpuChooseColor(s.players[s.currentPlayer]?.hand.filter(c => c.id !== drawn.id) ?? [])
               : undefined;
             return { ...makeExt(s), cpuPendingPlay: { cardId: drawn.id, chosenColor } };
           }
-          const n = s.players.length;
-          const next = ((s.currentPlayer + s.direction) % n + n) % n;
-          return { ...makeExt(s), currentPlayer: next };
+          return { ...makeExt(s), cpuPassedSeat: s.currentPlayer, cpuPassedDrawnId: drawn?.id ?? null };
         }
 
         const chosenColor =
@@ -321,5 +493,128 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, isLocked, actionTag, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, debugDrawTest, debugCPUDrawTest, restart };
+  const debugUnoTest = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== 'playing' || prev.players[0] === undefined) return prev;
+      const top = topCard(prev);
+      const human = prev.players[0];
+      const playable = human.hand.find(c => isPlayable(c, top));
+      if (!playable) return prev;
+      const other = human.hand.find(c => c.id !== playable.id);
+      const twoCards = other ? [playable, other] : [playable, prev.deck[prev.deck.length - 1]!];
+      const keptIds = new Set(twoCards.map(c => c.id));
+      const returned = human.hand.filter(c => !keptIds.has(c.id));
+      const deck = other ? prev.deck : prev.deck.slice(0, -1);
+      const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: twoCards } : p);
+      return { ...prev, deck: [...deck, ...returned], players, currentPlayer: 0, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const debugGiveWild4s = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== 'playing') return prev;
+      const players = prev.players.map((p, i) => {
+        if (p.isHuman) return p;
+        const extras = Array.from({ length: 4 }, (_, k) => ({ id: `dbg-w4-${i}-${k}`, color: 'wild' as const, value: 'wild4' as const }));
+        return { ...p, hand: [...extras, ...p.hand] };
+      });
+      return { ...prev, players };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const debugWild4Test = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== 'playing') return prev;
+      const attacker = prev.players.findIndex((_p, i) => i !== 0);
+      if (attacker === -1) return prev;
+      const prevColor = effectiveColor(topCard(prev));
+      const nextPlayer = ((0 + prev.direction + prev.players.length) % prev.players.length);
+      return { ...prev, currentPlayer: 0, pendingAction: { type: 'wild4', target: 0, nextPlayer, attacker, prevColor } };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const humanAcceptDraw4 = useCallback(() => {
+    const pa = state.pendingAction;
+    if (!pa || pa.type !== 'wild4' || pa.target !== 0) return;
+    const { nextPlayer } = pa;
+    const watch = animWatchRef?.current ?? noopWatch;
+    lockBoard(7000);
+    (async () => {
+      // Animate turn line from attacker to human, then draw
+      setState(prev => { if (!prev.pendingAction) return prev; return { ...prev, currentPlayer: 0 }; });
+      await sleep(1150);
+      setActionTag({ seat: 0, text: '😭 draw 4 cards', type: 'wild4' });
+      await sleep(600);
+      const drawDone = watch.watchDraw(0);
+      setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, 0, 4)); });
+      await drawDone;
+      await sleep(600);
+      setActionTag(null);
+      await sleep(0);
+      lockBoard(1150);
+      setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null }); });
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lockBoard]);
+
+  const humanChallenge = useCallback((onResult?: (succeeded: boolean) => void) => {
+    const pa = state.pendingAction;
+    if (!pa || pa.type !== 'wild4' || pa.target !== 0) return;
+    const { attacker, prevColor, nextPlayer } = pa;
+    const attackerHand = state.players[attacker ?? -1]?.hand ?? [];
+    const challengeSucceeds = attackerHand.some(c => c.color === prevColor);
+    onResult?.(challengeSucceeds);
+    const watch = animWatchRef?.current ?? noopWatch;
+    (async () => {
+      if (challengeSucceeds) {
+        lockBoard(5000);
+        setActionTag({ seat: 0, text: '🥳 Challenge Successful', type: 'wild4' });
+        await sleep(1000);
+        setActionTag({ seat: attacker ?? 0, text: '🤡 draw 4 cards', type: 'wild4' });
+        await sleep(600);
+        const drawDone = watch.watchDraw(attacker ?? 0);
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, attacker ?? 0, 4)); });
+        await drawDone;
+        await sleep(600);
+        setActionTag(null);
+        await sleep(0);
+        lockBoard(1150);
+        // Human gets their turn back — wild4 was illegal
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: 0, pendingAction: null }); });
+      } else {
+        lockBoard(7000);
+        await sleep(1400);
+        // Animate turn line to human first, then draw
+        setState(prev => { if (!prev.pendingAction) return prev; return { ...prev, currentPlayer: 0 }; });
+        await sleep(1150);
+        setActionTag({ seat: 0, text: '🤡 draw 6 cards', type: 'wild4' });
+        await sleep(600);
+        const drawDone = watch.watchDraw(0);
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, 0, 6)); });
+        await drawDone;
+        await sleep(600);
+        setActionTag(null);
+        await sleep(0);
+        lockBoard(1150);
+        setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: nextPlayer, pendingAction: null }); });
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, lockBoard]);
+
+  const bustDraw = useCallback((targetSeat: number) => {
+    const unlock = lockBoardManual();
+    setState(prev => {
+      if (prev.phase !== 'playing') return prev;
+      const drawn = drawCards(prev, targetSeat, 2);
+      return { ...drawn, pendingCardId: prev.pendingCardId, drawnCard: prev.drawnCard, cpuPendingPlay: prev.cpuPendingPlay, cpuPassedSeat: prev.cpuPassedSeat, cpuPassedDrawnId: prev.cpuPassedDrawnId, pendingAction: prev.pendingAction };
+    });
+    return unlock;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockBoardManual]);
+
+  return { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw, debugDrawTest, debugCPUDrawTest, debugUnoTest, debugWild4Test, debugGiveWild4s, restart };
 }

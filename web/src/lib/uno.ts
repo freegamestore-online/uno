@@ -43,6 +43,8 @@ export interface GameState {
     target: number;
     nextPlayer: number;
     color?: CardColor;
+    attacker?: number;
+    prevColor?: CardColor;
   } | null;
 }
 
@@ -202,8 +204,9 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
     }
     case 'wild4': {
       const victim = advance(playerIndex);
-      s.pendingAction = { type: 'wild4', target: victim, nextPlayer: advance(playerIndex, true) };
-      s.currentPlayer = victim;
+      const prevColor = effectiveColor(state.discard[state.discard.length - 1] as UnoCard);
+      s.pendingAction = { type: 'wild4', target: victim, nextPlayer: advance(playerIndex, true), attacker: playerIndex, prevColor };
+      s.currentPlayer = playerIndex; // Stay on attacker — challenge decision happens at their seat
       break;
     }
     case 'wild': {
