@@ -93,12 +93,12 @@ export function useDrag(deskRef: { readonly current: HTMLDivElement | null }) {
       if (dragHintRef.current) dragHintRef.current.style.opacity = '0';
       if (deckHintRef.current) {
         const board = document.getElementById('board-container');
-        const desk = deskRef.current;
-        if (board && desk) {
+        const pilesRow = document.getElementById('piles-row');
+        if (board && pilesRow) {
           const br = board.getBoundingClientRect();
-          const dr = desk.getBoundingClientRect();
-          deckHintRef.current.style.left = `${board.clientWidth / 2 - (dr.left - br.left)}px`;
-          deckHintRef.current.style.top = `${d.hintTop - (dr.top - br.top)}px`;
+          const pr = pilesRow.getBoundingClientRect();
+          deckHintRef.current.style.left = `${board.clientWidth / 2 - (pr.left - br.left)}px`;
+          deckHintRef.current.style.top = `${d.hintTop - (pr.top - br.top)}px`;
         }
         deckHintRef.current.textContent = 'Release to draw';
         deckHintRef.current.style.opacity = progress >= 1 ? '1' : '0';

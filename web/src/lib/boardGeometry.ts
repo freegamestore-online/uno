@@ -146,6 +146,23 @@ export function getCPUCardTarget(hand: UnoCard[], playerIdx: number, cardIdx: nu
   };
 }
 
+export function getUpperZonePos() {
+  const board = document.getElementById('board-container');
+  const pilesRow = document.getElementById('piles-row');
+  const topTag = document.getElementById('top-nametag');
+  const vh = board ? board.clientHeight : window.innerHeight;
+
+  let cssTop = vh * 0.30;
+  if (board && pilesRow && topTag) {
+    const br = board.getBoundingClientRect();
+    const pr = pilesRow.getBoundingClientRect();
+    const tr = topTag.getBoundingClientRect();
+    cssTop = ((tr.bottom - br.top) + (pr.top - br.top)) / 2;
+  }
+
+  return { cssTop: Math.round(cssTop) };
+}
+
 export function getDecisionZonePos() {
   const board = document.getElementById('board-container');
   const pilesRow = document.getElementById('piles-row');

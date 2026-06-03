@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 
 const COLOR_BG: Record<string, string> = {
   red: '#dc2626', green: '#16a34a', blue: '#2563eb', yellow: '#eab308',
@@ -11,14 +11,16 @@ interface TurnLineInput {
   players: { position?: string }[];
   pendingAction: { type: string; color?: string } | null | undefined;
   setActiveSeat: (seat: number | null) => void;
+  animWatchRef?: { current: { waitAllAnims: () => Promise<void> } };
 }
 
-export function useTurnLine({ currentPlayer, direction, visualDirection, players, pendingAction, setActiveSeat }: TurnLineInput) {
+export function useTurnLine({ currentPlayer, direction, visualDirection, players, pendingAction, setActiveSeat, animWatchRef }: TurnLineInput) {
   const [turnLine, setTurnLine] = useState({ offset: 0, length: 0, traveling: false });
   const [wildTravelColor, setWildTravelColor] = useState<string | null>(null);
   const [animatingFrom, setAnimatingFrom] = useState<number>(0);
   const [displayedDir, setDisplayedDir] = useState<1 | -1>(1);
   const [dirOpacity, setDirOpacity] = useState(0);
+  const animParamsRef = useRef<{ to: number; targetOffset: number; D: number } | null>(null);
 
   useLayoutEffect(() => {
     const P = 1000;
@@ -34,14 +36,14 @@ export function useTurnLine({ currentPlayer, direction, visualDirection, players
     if (animatingFrom === currentPlayer) {
       setActiveSeat(currentPlayer);
       setTurnLine({ offset: getPos(currentPlayer) + P, length: 0, traveling: false });
+      animParamsRef.current = null;
       return;
     }
 
-    const from = animatingFrom;
     const to = currentPlayer;
     setActiveSeat(null);
 
-    let startOffset = getPos(from);
+    let startOffset = getPos(animatingFrom);
     let targetOffset = getPos(to);
 
     if (direction === 1 && targetOffset < startOffset) {
@@ -56,23 +58,38 @@ export function useTurnLine({ currentPlayer, direction, visualDirection, players
     const D = Math.abs(targetOffset - startOffset);
 
     setTurnLine({ offset: startOffset, length: 0, traveling: false });
+    animParamsRef.current = { to, targetOffset, D };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlayer, direction, players.map(p => p.position).join(','), animatingFrom]);
 
-    const t1 = setTimeout(() => {
+  useEffect(() => {
+    if (animatingFrom === currentPlayer) return;
+    const params = animParamsRef.current;
+    if (!params) return;
+
+    const { to, targetOffset, D } = params;
+    let cancelled = false;
+
+    (async () => {
+      if (animWatchRef?.current?.waitAllAnims) {
+        await animWatchRef.current.waitAllAnims();
+      } else {
+        await new Promise<void>(r => setTimeout(r, 50));
+      }
+      if (cancelled) return;
       setTurnLine({ offset: targetOffset, length: D, traveling: true });
-    }, 720);
-
-    const t2 = setTimeout(() => {
+      await new Promise<void>(r => setTimeout(r, 450));
+      if (cancelled) return;
       setTurnLine({ offset: targetOffset, length: 0, traveling: true });
-    }, 1170);
-
-    const t3 = setTimeout(() => {
+      await new Promise<void>(r => setTimeout(r, 500));
+      if (cancelled) return;
       setTurnLine({ offset: targetOffset, length: 0, traveling: false });
       setAnimatingFrom(to);
-    }, 1670);
+    })();
 
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPlayer, direction, players, animatingFrom]);
+  }, [currentPlayer, direction, players.map(p => p.position).join(','), animatingFrom]);
 
   useEffect(() => {
     if (visualDirection === displayedDir) return;
