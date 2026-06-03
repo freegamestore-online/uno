@@ -90,10 +90,10 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
               </g>
 
               <g transform="translate(50, 72.5)">
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-top" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
                 </text>
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-bot" startOffset="76%" textAnchor="middle">COLOR</textPath>
                 </text>
               </g>

@@ -270,7 +270,7 @@ export default function App() {
               <span className="text-white/40 font-sans text-[13px]">Connect with me:</span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0" style={{ opacity: 0.5 }}>
                 <rect width="16" height="16" rx="3" fill="white" fillOpacity="0.2" />
-                <text x="8" y="12" textAnchor="middle" fontFamily="var(--font-sans), sans-serif" fontWeight="800" fontSize="9" fill="white">in</text>
+                <text x="8" y="12" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontSize: '9px', fontWeight: 800 }} fill="white">in</text>
               </svg>
               <span className="text-white/65 font-sans text-[13px] group-hover:text-white transition-colors">Dawson Huang</span>
             </a>
@@ -360,9 +360,9 @@ export default function App() {
                   <div key={glazeKey} className="absolute pointer-events-none" style={{ top: '-20%', left: 0, width: 72, height: '140%', background: 'linear-gradient(to right, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)', transform: 'skewX(-18deg)', animation: 'logo-glaze 0.55s ease forwards' }} />
                 )}
                 <svg viewBox="0 0 120 56" width="120" height="56" className="block overflow-visible">
-                  <text x="62" y="47" textAnchor="middle" fontFamily="Fraunces, serif" fontWeight="800" fontSize="54" fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="61" y="46" textAnchor="middle" fontFamily="Fraunces, serif" fontWeight="800" fontSize="54" fill="#000" letterSpacing="-1">UNO</text>
-                  <text x="59" y="44" textAnchor="middle" fontFamily="Fraunces, serif" fontWeight="800" fontSize="54" fill="#facc15" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+                  <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#000" letterSpacing="-1">UNO</text>
+                  <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#000" letterSpacing="-1">UNO</text>
+                  <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontSize: '54px', fontWeight: 800 }} fill="#facc15" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
                 </svg>
               </div>
               <p className="text-white/45 text-[13px] font-sans mt-[10px] mb-0">Classic card game</p>
@@ -402,7 +402,7 @@ export default function App() {
             >
               <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
                 <circle cx="11" cy="11" r="10" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
-                <text x="11" y="15.5" textAnchor="middle" fontFamily="var(--font-sans), sans-serif" fontWeight="700" fontSize="12" fill="rgba(255,255,255,0.7)">i</text>
+                <text x="11" y="15.5" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontSize: '12px', fontWeight: 700 }} fill="rgba(255,255,255,0.7)">i</text>
               </svg>
             </button>
 

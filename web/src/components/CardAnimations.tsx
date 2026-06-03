@@ -73,10 +73,10 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
                 <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="#dc2626" />
               </g>
               <g transform="translate(50, 72.5)">
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-top-play" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
                 </text>
-                <text fill="#ffffff" fontSize="7.5" fontFamily="var(--font-sans), sans-serif" fontWeight="900" letterSpacing="0.8" dominantBaseline="middle">
+                <text fill="#ffffff" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
                   <textPath href="#arc-bot-play" startOffset="76%" textAnchor="middle">COLOR</textPath>
                 </text>
               </g>

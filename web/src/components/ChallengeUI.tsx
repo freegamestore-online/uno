@@ -77,7 +77,7 @@ export function CpuChallengePrompt({ attackerName, prevColor }: CpuChallengeProm
         style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap' }}
       >
         Does {attackerName} have{' '}
-        <span style={{ color: colorHex, fontWeight: 700 }}>{colorLabel}</span>
+        <span className="font-bold" style={{ color: colorHex }}>{colorLabel}</span>
         {' '}cards now?
       </p>
     </div>
@@ -145,7 +145,7 @@ export function ChallengeUI({ attackerName, prevColor, onChallenge, onAccept }: 
         style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'clamp(13px, 3.5vw, 15px)', whiteSpace: 'nowrap' }}
       >
         Does {attackerName} have{' '}
-        <span style={{ color: colorHex, fontWeight: 700 }}>{colorLabel}</span>
+        <span className="font-bold" style={{ color: colorHex }}>{colorLabel}</span>
         {' '}cards now?
       </p>
       <div className="flex gap-3 pointer-events-auto">

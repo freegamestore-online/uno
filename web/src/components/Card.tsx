@@ -99,11 +99,11 @@ function Text3D({ text, fontSize, isCenter }: { text: string; fontSize: number; 
       {shadows.map(([dx, dy], i) => (
         <g key={`text-shadow-${i}`} transform={`translate(${dx}, ${dy})`}>
           {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="#000" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round" />}
-          <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fontSize={fontSize} fontFamily="var(--font-sans), Helvetica, sans-serif" fontWeight="800" fill="#000" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round">{text}</text>
+          <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="#000" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round">{text}</text>
         </g>
       ))}
       {hasLine && <rect x={rectX} y={rectY} width={rectW} height={rectH} rx={rectH / 2} fill="#fff" stroke="#000" strokeWidth={rectStrokeW} strokeLinejoin="round" paintOrder="stroke fill" />}
-      <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fontSize={fontSize} fontFamily="var(--font-sans), Helvetica, sans-serif" fontWeight="800" fill="#fff" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round" paintOrder="stroke fill">{text}</text>
+      <text x="0" y="0" textAnchor="middle" dominantBaseline="central" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize }} fill="#fff" stroke="#000" strokeWidth={strokeW} strokeLinejoin="round" paintOrder="stroke fill">{text}</text>
     </g>
   );
 }
@@ -150,9 +150,9 @@ export function Card({ card, faceDown, playable, selected, onClick, size = 'md',
           }}
         >
           <svg viewBox="0 0 120 56" width="100%" height="100%" className="block overflow-visible">
-            <text x="62" y="47" textAnchor="middle" fontFamily="var(--font-sans), Helvetica, sans-serif" fontWeight="800" fontSize={54} fill="#000" letterSpacing="-1">UNO</text>
-            <text x="61" y="46" textAnchor="middle" fontFamily="var(--font-sans), Helvetica, sans-serif" fontWeight="800" fontSize={54} fill="#000" letterSpacing="-1">UNO</text>
-            <text x="59" y="44" textAnchor="middle" fontFamily="var(--font-sans), Helvetica, sans-serif" fontWeight="800" fontSize={54} fill="#eab308" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+            <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#000" letterSpacing="-1">UNO</text>
+            <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#000" letterSpacing="-1">UNO</text>
+            <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="#eab308" stroke="#000" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
           </svg>
         </div>
       </div>
