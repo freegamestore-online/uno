@@ -449,93 +449,6 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentPlayer, state.phase, isLocked, activeSeat, state.pendingAction]);
 
-  const debugDrawTest = useCallback(() => {
-    setState(prev => {
-      if (prev.phase !== 'playing' || prev.players[0] === undefined) return prev;
-      const top = topCard(prev);
-      const human = prev.players[0];
-      // Move all playable cards from human's hand into the deck, then surface one playable card to the top
-      const playableInHand = human.hand.filter(c => isPlayable(c, top));
-      const nonPlayable = human.hand.filter(c => !isPlayable(c, top));
-      let deck = [...prev.deck, ...playableInHand];
-      const playableIdx = deck.findIndex(c => isPlayable(c, top));
-      if (playableIdx === -1) return prev;
-      const [surfaced] = deck.splice(playableIdx, 1);
-      deck = [...deck, surfaced!]; // put playable card at top of draw pile
-      const players = prev.players.map((p, i) =>
-        i === 0 ? { ...p, hand: nonPlayable.length > 0 ? nonPlayable : [deck.pop()!] } : p
-      );
-      return { ...prev, deck, players, drawnCard: null };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const debugCPUDrawTest = useCallback(() => {
-    setState(prev => {
-      if (prev.phase !== 'playing') return prev;
-      const cpuIdx = prev.players.findIndex(p => !p.isHuman);
-      if (cpuIdx === -1) return prev;
-      const top = topCard(prev);
-      const cpu = prev.players[cpuIdx]!;
-      // Strip playables from CPU hand, surface a playable to deck top
-      const playableInHand = cpu.hand.filter(c => isPlayable(c, top));
-      const nonPlayable = cpu.hand.filter(c => !isPlayable(c, top));
-      let deck = [...prev.deck, ...playableInHand];
-      const playableIdx = deck.findIndex(c => isPlayable(c, top));
-      if (playableIdx === -1) return prev;
-      const [surfaced] = deck.splice(playableIdx, 1);
-      deck = [...deck, surfaced!];
-      const players = prev.players.map((p, i) =>
-        i === cpuIdx ? { ...p, hand: nonPlayable.length > 0 ? nonPlayable : [deck[deck.length - 2]!] } : p
-      );
-      return { ...prev, deck, players, currentPlayer: cpuIdx, drawnCard: null, pendingCardId: null, cpuPendingPlay: null };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const debugUnoTest = useCallback(() => {
-    setState(prev => {
-      if (prev.phase !== 'playing' || prev.players[0] === undefined) return prev;
-      const top = topCard(prev);
-      const human = prev.players[0];
-      const playable = human.hand.find(c => isPlayable(c, top));
-      if (!playable) return prev;
-      const other = human.hand.find(c => c.id !== playable.id);
-      const twoCards = other ? [playable, other] : [playable, prev.deck[prev.deck.length - 1]!];
-      const keptIds = new Set(twoCards.map(c => c.id));
-      const returned = human.hand.filter(c => !keptIds.has(c.id));
-      const deck = other ? prev.deck : prev.deck.slice(0, -1);
-      const players = prev.players.map((p, i) => i === 0 ? { ...p, hand: twoCards } : p);
-      return { ...prev, deck: [...deck, ...returned], players, currentPlayer: 0, pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const debugGiveWild4s = useCallback(() => {
-    setState(prev => {
-      if (prev.phase !== 'playing') return prev;
-      const players = prev.players.map((p, i) => {
-        if (p.isHuman) return p;
-        const extras = Array.from({ length: 4 }, (_, k) => ({ id: `dbg-w4-${i}-${k}`, color: 'wild' as const, value: 'wild4' as const }));
-        return { ...p, hand: [...extras, ...p.hand] };
-      });
-      return { ...prev, players };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const debugWild4Test = useCallback(() => {
-    setState(prev => {
-      if (prev.phase !== 'playing') return prev;
-      const attacker = prev.players.findIndex((_p, i) => i !== 0);
-      if (attacker === -1) return prev;
-      const prevColor = effectiveColor(topCard(prev));
-      const nextPlayer = ((0 + prev.direction + prev.players.length) % prev.players.length);
-      return { ...prev, currentPlayer: 0, pendingAction: { type: 'wild4', target: 0, nextPlayer, attacker, prevColor } };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const humanAcceptDraw4 = useCallback(() => {
     const pa = state.pendingAction;
     if (!pa || pa.type !== 'wild4' || pa.target !== 0) return;
@@ -616,5 +529,5 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockBoardManual]);
 
-  return { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw, debugDrawTest, debugCPUDrawTest, debugUnoTest, debugWild4Test, debugGiveWild4s, restart };
+  return { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw, restart };
 }

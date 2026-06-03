@@ -14,7 +14,6 @@ import { DecisionZoneUI } from './DecisionZoneUI';
 import { ChallengeUI, ChallengeOopsText, CpuChallengePrompt, CpuChallengeOopsText } from './ChallengeUI';
 import { NameTag } from './NameTag';
 import { CardPiles } from './CardPiles';
-import { Card } from './Card';
 import { PlayingCardAnim, InitCardReveal, FlyingCardAnim } from './CardAnimations';
 import { sortHand, getHumanCardTarget, getDecisionZonePos } from '../lib/boardGeometry';
 import { UnoCard, OpponentConfig, topCard, isPlayable, effectiveColor, CardColor } from '../lib/uno';
@@ -44,8 +43,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
   const [unoTagActive, setUnoTagActive] = useState(false);
   const [bustedSeats, setBustedSeats] = useState<Set<number>>(new Set());
   const [showWinScreen, setShowWinScreen] = useState(false);
-  const [showHands, setShowHands] = useState(false);
-  const [challengeDismissed, setChallengeDismissed] = useState(false);
+const [challengeDismissed, setChallengeDismissed] = useState(false);
   const [challengeOops, setChallengeOops] = useState(false);
   const [cpuChallengeOops, setCpuChallengeOops] = useState(false);
   const prevCpuOopsKeyRef = useRef(0);
@@ -67,7 +65,7 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
 
   const animWatchRef = useRef<AnimWatchRef>({ watchDraw: () => Promise.resolve(), watchCardAnim: () => Promise.resolve(), waitAllAnims: () => Promise.resolve() });
 
-  const { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw, debugUnoTest, debugWild4Test, debugGiveWild4s } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
+  const { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
 
   const deskRef = useRef<HTMLDivElement>(null);
   const { startDrag, moveDrag, endDrag, dragPlayOverrideRef, dragDrawOverrideRef, didDragActionRef, didDragMoveRef, dragHintRef, deckHintRef } = useDrag(deskRef);
@@ -486,25 +484,6 @@ export function GameBoard({ opponents, onExit, onRestart, onGameInfoChange }: Pr
         return <ColorPicker onPick={handlePickColor} tx={tx} ty={ty} trot={trot} card={card} isDrag={!!dragPos} startScale={dragPos?.startScale} />;
       })()}
 
-      <div className="absolute top-2 left-2 flex gap-1" style={{ zIndex: Z.MODAL }}>
-        <button className="bg-transparent border border-white/30 text-white/40 text-[11px] font-mono rounded px-1.5 py-0.5 cursor-pointer hover:text-white/70 hover:border-white/50" onClick={debugUnoTest}>U</button>
-        <button className="bg-transparent border border-white/30 text-white/40 text-[11px] font-mono rounded px-1.5 py-0.5 cursor-pointer hover:text-white/70 hover:border-white/50" onClick={debugWild4Test}>T</button>
-        <button className="bg-transparent border text-[11px] font-mono rounded px-1.5 py-0.5 cursor-pointer" style={{ borderColor: showHands ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)', color: showHands ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)' }} onClick={() => setShowHands(s => !s)}>H</button>
-        <button className="bg-transparent border border-white/30 text-white/40 text-[11px] font-mono rounded px-1.5 py-0.5 cursor-pointer hover:text-white/70 hover:border-white/50" onClick={debugGiveWild4s}>W</button>
-      </div>
-
-      {showHands && (
-        <div className="absolute top-8 left-2 flex flex-col gap-2 pointer-events-none" style={{ zIndex: Z.MODAL }}>
-          {state.players.filter(p => !p.isHuman).map(p => (
-            <div key={p.id} className="flex flex-col gap-1">
-              <span className="text-[10px] font-mono text-white/50">{p.name}</span>
-              <div className="flex flex-wrap gap-0.5">
-                {p.hand.map(c => <Card key={c.id} card={c} size="sm" />)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {showWinScreen && (
         <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center gap-5" style={{ zIndex: Z.MODAL }}>
