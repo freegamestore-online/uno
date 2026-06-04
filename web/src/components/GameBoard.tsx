@@ -267,6 +267,9 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
     if (activeSeat === null || activeSeat === 0) return;
     const player = state.players[activeSeat];
     if (!player || player.isHuman) return;
+    // Don't call UNO while being skipped — activeSeat lands on the victim before the skip resolves
+    const pa = state.pendingAction;
+    if (pa && (pa.type === 'skip' || (pa.type === 'reverse' && state.players.length === 2)) && pa.target === activeSeat) return;
     // Cancel UNO if CPU's 1 remaining card is unplayable
     if (player.hand.length === 1 && !player.hand.some(c => isPlayable(c, top))) {
       setCpuUnoCalledState(s => { const n = new Set(s); n.delete(activeSeat); return n; });
