@@ -7,7 +7,6 @@ import {
   playCard,
   drawCards,
   topCard,
-  effectiveColor,
   isPlayable,
   cpuChooseCard,
   cpuChooseColor,
@@ -87,7 +86,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
         return { ...prev, phase: 'color-pick', pendingCardId: cardId };
       }
-      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+      return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -99,7 +98,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     setState(prev => {
       if (prev.phase !== 'color-pick' || !prev.pendingCardId) return prev;
       const next = playCard(prev, prev.pendingCardId, color);
-      return { ...next, pendingCardId: null, drawnCard: null, cpuPendingPlay: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
+      return { ...next, pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null, phase: next.phase === 'game-over' ? 'game-over' : 'playing' };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -145,7 +144,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       if ((c.value === 'wild' || c.value === 'wild4') && !chosenColor) {
         return { ...stateWithCard, phase: 'color-pick', pendingCardId: c.id };
       }
-      return { ...playCard(stateWithCard, c.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+      return { ...playCard(stateWithCard, c.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null };
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, lockBoard]);
@@ -360,7 +359,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       lockBoard();
       setState(prev => {
         if (!prev.cpuPendingPlay) return prev;
-        return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+        return { ...playCard(prev, cardId, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null };
       });
     })();
     return () => { cancelled = true; };
@@ -429,7 +428,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
             ? cpuChooseColor(cpu.hand.filter(c => c.id !== card.id))
             : undefined;
 
-        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null };
+        return { ...playCard(prev, card.id, chosenColor), pendingCardId: null, drawnCard: null, cpuPendingPlay: null, cpuPassedSeat: null, cpuPassedDrawnId: null };
       });
     }, 500);
 

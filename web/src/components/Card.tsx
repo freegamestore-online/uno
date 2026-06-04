@@ -118,7 +118,7 @@ interface Props {
   thick?: boolean;
 }
 
-export function Card({ card, faceDown, playable, selected, onClick, size = 'md', thick }: Props) {
+export function Card({ card, faceDown, selected, onClick, size = 'md', thick }: Props) {
   const uid = useId();
   const color = effectiveColor(card);
   const bg = card.value === 'wild4' && card.chosenColor ? COLOR_BG[card.chosenColor] : card.color === 'wild' ? COLOR_BG['wild'] : (COLOR_BG[color] ?? 'var(--uno-wild)');

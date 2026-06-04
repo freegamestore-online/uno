@@ -124,7 +124,6 @@ export function useDrag(deskRef: { readonly current: HTMLDivElement | null }) {
     if (!d) return;
     dragRef.current = null;
 
-    const dx = e.clientX - d.startX;
     const dy = e.clientY - d.startY;
     d.el.style.filter = '';
 
