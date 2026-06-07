@@ -66,8 +66,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
 
   const animWatchRef = useRef<AnimWatchRef>({ watchDraw: () => Promise.resolve(), watchCardAnim: () => Promise.resolve(), waitAllAnims: () => Promise.resolve() });
 
-  const { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw, debugAddCard } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
-  const [revealAll, setRevealAll] = useState(false);
+  const { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
 
   const deskRef = useRef<HTMLDivElement>(null);
   const { startDrag, moveDrag, endDrag, dragPlayOverrideRef, dragDrawOverrideRef, didDragActionRef, didDragMoveRef, dragHintRef, deckHintRef } = useDrag(deskRef);
@@ -365,7 +364,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
       style={{ '--card-sm-w': 'clamp(28px, 7vw, 36px)', '--card-md-w': 'clamp(40px, 10vw, 52px)' } as React.CSSProperties}
     >
       {state.players.slice(1).map(opp => (
-        <OpponentFan key={opp.id} opp={opp} hiddenCardIds={hiddenCardIds} revealAll={revealAll} />
+        <OpponentFan key={opp.id} opp={opp} hiddenCardIds={hiddenCardIds} />
       ))}
 
       <div
@@ -478,26 +477,6 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
           </button>
         );
       })()}
-
-      <div className="absolute flex gap-1" style={{ bottom: 'clamp(10px, 2.5vh, 20px)', left: 'clamp(10px, 2.5vw, 18px)', zIndex: Z.DECISION }}>
-        {[{ label: '+4', value: 'wild4' as const }, { label: '🎨', value: 'wild' as const }].map(({ label, value }) => (
-          <button key={value} onClick={() => debugAddCard(value, 0)}
-            className="font-sans font-bold bg-transparent border rounded-full"
-            style={{ padding: '4px 12px', fontSize: 13, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.5)' }}>
-            {label}
-          </button>
-        ))}
-        <button onClick={() => debugAddCard('wild4', state.players.slice(1).map((_, i) => i + 1))}
-          className="font-sans font-bold bg-transparent border rounded-full"
-          style={{ padding: '4px 12px', fontSize: 13, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.5)' }}>
-          🤖+4
-        </button>
-        <button onClick={() => setRevealAll(v => !v)}
-          className="font-sans font-bold bg-transparent border rounded-full"
-          style={{ padding: '4px 12px', fontSize: 13, borderColor: revealAll ? 'var(--uno-yellow)' : 'rgba(255,255,255,0.3)', color: revealAll ? 'var(--uno-yellow)' : 'rgba(255,255,255,0.5)' }}>
-          👁
-        </button>
-      </div>
 
       {pickerBg && (
         <div className="absolute inset-0 bg-black/60 pointer-events-none" style={{ zIndex: Z.COLOR_DIM, animation: pickerBg === 'in' ? 'fade-in 700ms ease-out forwards' : 'fade-out 600ms ease-out forwards' }} />

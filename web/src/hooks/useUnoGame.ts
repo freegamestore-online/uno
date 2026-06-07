@@ -498,16 +498,5 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockBoardManual]);
 
-  const debugAddCard = useCallback((value: 'wild4' | 'wild', seats: number | number[] = 0) => {
-    const seatArr = Array.isArray(seats) ? seats : [seats];
-    setState(prev => {
-      const players = prev.players.map((p, i) =>
-        !seatArr.includes(i) ? p : { ...p, hand: [...p.hand, { id: `dbg-${value}-${i}-${Date.now()}`, color: 'wild' as CardColor, value }] }
-      );
-      return { ...prev, players };
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw, restart, debugAddCard };
+  return { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw, restart };
 }
