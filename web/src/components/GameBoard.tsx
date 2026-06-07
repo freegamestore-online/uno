@@ -9,6 +9,7 @@ import { ColorPicker } from './ColorPicker';
 import { OpponentFan } from './OpponentFan';
 import { TurnLineSVG } from './TurnLineSVG';
 import { DealLightningSVG } from './DealLightningSVG';
+import { Wild4LightningSVG } from './Wild4LightningSVG';
 import { PlayerHand } from './PlayerHand';
 import { DecisionZoneUI } from './DecisionZoneUI';
 import { ChallengeUI, ChallengeOopsText, CpuChallengePrompt, CpuChallengeOopsText } from './ChallengeUI';
@@ -65,7 +66,8 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
 
   const animWatchRef = useRef<AnimWatchRef>({ watchDraw: () => Promise.resolve(), watchCardAnim: () => Promise.resolve(), waitAllAnims: () => Promise.resolve() });
 
-  const { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
+  const { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw, debugAddCard } = useUnoGame(opponents, initCardRevealed ? activeSeat : null, animWatchRef, bustActiveRef);
+  const [revealAll, setRevealAll] = useState(false);
 
   const deskRef = useRef<HTMLDivElement>(null);
   const { startDrag, moveDrag, endDrag, dragPlayOverrideRef, dragDrawOverrideRef, didDragActionRef, didDragMoveRef, dragHintRef, deckHintRef } = useDrag(deskRef);
@@ -116,7 +118,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
                    !state.pendingAction && !dealLightningOffset && !state.drawnCard && initCardRevealed;
 
   const pa = state.pendingAction;
-  const pendingWild4ForHuman = pa?.type === 'wild4' && pa.target === 0 && pa.attacker != null && activeSeat === pa.attacker && !hiddenDiscardId;
+  const pendingWild4ForHuman = pa?.type === 'wild4' && pa.target === 0 && pa.attacker != null && activeSeat === 0 && !hiddenDiscardId;
   const pendingWild4ForCPU = pa?.type === 'wild4' && pa.target !== 0 && !hiddenDiscardId;
   useEffect(() => {
     if (!pendingWild4ForHuman) { setChallengeDismissed(false); setChallengeOops(false); }
@@ -267,9 +269,9 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
     if (activeSeat === null || activeSeat === 0) return;
     const player = state.players[activeSeat];
     if (!player || player.isHuman) return;
-    // Don't call UNO while being skipped — activeSeat lands on the victim before the skip resolves
+    // Don't call UNO while being penalised — activeSeat lands on the victim before the action resolves
     const pa = state.pendingAction;
-    if (pa && (pa.type === 'skip' || (pa.type === 'reverse' && state.players.length === 2)) && pa.target === activeSeat) return;
+    if (pa && (pa.type === 'skip' || pa.type === 'wild4' || (pa.type === 'reverse' && state.players.length === 2)) && pa.target === activeSeat) return;
     // Cancel UNO if CPU's 1 remaining card is unplayable
     if (player.hand.length === 1 && !player.hand.some(c => isPlayable(c, top))) {
       setCpuUnoCalledState(s => { const n = new Set(s); n.delete(activeSeat); return n; });
@@ -363,7 +365,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
       style={{ '--card-sm-w': 'clamp(28px, 7vw, 36px)', '--card-md-w': 'clamp(40px, 10vw, 52px)' } as React.CSSProperties}
     >
       {state.players.slice(1).map(opp => (
-        <OpponentFan key={opp.id} opp={opp} hiddenCardIds={hiddenCardIds} />
+        <OpponentFan key={opp.id} opp={opp} hiddenCardIds={hiddenCardIds} revealAll={revealAll} />
       ))}
 
       <div
@@ -379,6 +381,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
       >
         <TurnLineSVG desk={desk} displayedDir={displayedDir} dirOpacity={dirOpacity} color={COLOR_BG[topColor] ?? 'white'} turnLine={turnLine} wildTravelColor={wildTravelColor} direction={state.direction} pendingAction={state.pendingAction} />
         {dealLightningOffset && <DealLightningSVG deskW={desk.w} deskH={desk.h} dealLightningOffset={dealLightningOffset} />}
+        {wild4Strike !== null && <Wild4LightningSVG desk={desk} attackerSeat={pa?.attacker ?? null} targetSeat={wild4Strike} players={state.players} direction={state.direction} />}
         {state.players.map((p, idx) => (
           <NameTag key={p.id} player={p} idx={idx} activeSeat={effectiveActiveSeat} initCardRevealed={initCardRevealed} actionTag={effectiveActionTag} unoCalled={p.id === 0 ? unoCalled : cpuUnoCalledState.has(idx)} unoTagActive={p.id === 0 ? unoTagActive : cpuUnoSeats.has(idx)} isBusted={bustedSeats.has(idx) && idx !== 0} bustPopActive={bustPopSeats.has(idx)} isGotcha={gotchaSeat === idx} onBust={bustedSeats.has(idx) && idx !== 0 ? () => handleBust(idx, 0) : undefined} />
         ))}
@@ -443,7 +446,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
             setChallengeDismissed(true);
             humanChallenge(succeeded => { if (!succeeded) setChallengeOops(true); });
           }}
-          onAccept={() => { setChallengeDismissed(true); humanAcceptDraw4(); }}
+          onAccept={() => { setChallengeDismissed(true); acceptDraw4(0); }}
         />
       )}
 
@@ -475,6 +478,26 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
           </button>
         );
       })()}
+
+      <div className="absolute flex gap-1" style={{ bottom: 'clamp(10px, 2.5vh, 20px)', left: 'clamp(10px, 2.5vw, 18px)', zIndex: Z.DECISION }}>
+        {[{ label: '+4', value: 'wild4' as const }, { label: '🎨', value: 'wild' as const }].map(({ label, value }) => (
+          <button key={value} onClick={() => debugAddCard(value, 0)}
+            className="font-sans font-bold bg-transparent border rounded-full"
+            style={{ padding: '4px 12px', fontSize: 13, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.5)' }}>
+            {label}
+          </button>
+        ))}
+        <button onClick={() => debugAddCard('wild4', state.players.slice(1).map((_, i) => i + 1))}
+          className="font-sans font-bold bg-transparent border rounded-full"
+          style={{ padding: '4px 12px', fontSize: 13, borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.5)' }}>
+          🤖+4
+        </button>
+        <button onClick={() => setRevealAll(v => !v)}
+          className="font-sans font-bold bg-transparent border rounded-full"
+          style={{ padding: '4px 12px', fontSize: 13, borderColor: revealAll ? 'var(--uno-yellow)' : 'rgba(255,255,255,0.3)', color: revealAll ? 'var(--uno-yellow)' : 'rgba(255,255,255,0.5)' }}>
+          👁
+        </button>
+      </div>
 
       {pickerBg && (
         <div className="absolute inset-0 bg-black/60 pointer-events-none" style={{ zIndex: Z.COLOR_DIM, animation: pickerBg === 'in' ? 'fade-in 700ms ease-out forwards' : 'fade-out 600ms ease-out forwards' }} />

@@ -48,22 +48,24 @@ export function NameTag({ player: p, idx, activeSeat, initCardRevealed, actionTa
   }
 
   return (
-    <div
-      id={p.id === 0 ? 'you-nametag' : p.position === 'top' ? 'top-nametag' : undefined}
-      className={`absolute ${posClass} px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-sans font-bold z-0${isBusted ? ' bust-glow' : ''}`}
-      onClick={isBusted && onBust ? onBust : undefined}
-      style={{
-        backgroundColor: isGotcha ? 'var(--uno-red)' : bustPopActive ? 'rgba(0,0,0,0.25)' : isBusted ? 'var(--uno-yellow)' : unoTagActive ? 'rgba(0,0,0,0.25)' : unoCalled && isActive && !isPunished ? 'var(--uno-pink)' : isActive && !isPunished ? 'white' : 'rgba(0,0,0,0.25)',
-        color: textColor,
-        boxShadow: isGotcha ? '0 0 16px rgba(220,38,38,0.5)' : isBusted ? undefined : isActive && !isPunished && !unoCalled ? '0 0 16px rgba(255,255,255,0.3)' : unoCalled && isActive ? '0 0 16px rgba(244,114,182,0.5)' : 'inset 0 1px 3px rgba(0,0,0,0.3)',
-        transition: isGotcha || bustPopActive || isBusted || isPunished || unoTagActive ? 'none' : 'all 300ms',
-        fontSize: isGotcha || bustPopActive || isBusted || isPunished || unoTagActive ? '13px' : '11px',
-        cursor: isBusted && !!onBust ? 'pointer' : 'default',
-        transformOrigin: tOrigin,
-        animation: isGotcha ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : bustPopActive ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : isBusted ? undefined : unoTagActive ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : isPunished ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
-      }}
-    >
-      {displayTag}
+    <div className={`absolute ${posClass} z-0`} style={{ pointerEvents: 'none' }}>
+      <div
+        id={p.id === 0 ? 'you-nametag' : p.position === 'top' ? 'top-nametag' : undefined}
+        className={`pointer-events-auto px-3 py-1 rounded-full text-[11px] uppercase tracking-wider font-sans font-bold${isBusted ? ' bust-glow' : ''}`}
+        onClick={isBusted && onBust ? onBust : undefined}
+        style={{
+          backgroundColor: isGotcha ? 'var(--uno-red)' : bustPopActive ? 'rgba(0,0,0,0.25)' : isBusted ? 'var(--uno-yellow)' : unoTagActive ? 'rgba(0,0,0,0.25)' : unoCalled && isActive && !isPunished ? 'var(--uno-pink)' : isActive && !isPunished ? 'white' : 'rgba(0,0,0,0.25)',
+          color: textColor,
+          boxShadow: isGotcha ? '0 0 16px rgba(220,38,38,0.5)' : isBusted ? undefined : isActive && !isPunished && !unoCalled ? '0 0 16px rgba(255,255,255,0.3)' : unoCalled && isActive ? '0 0 16px rgba(244,114,182,0.5)' : 'inset 0 1px 3px rgba(0,0,0,0.3)',
+          transition: isGotcha || bustPopActive || isBusted || isPunished || unoTagActive ? 'none' : 'all 300ms',
+          fontSize: isGotcha || bustPopActive || isBusted || isPunished || unoTagActive ? '13px' : '11px',
+          cursor: isBusted && !!onBust ? 'pointer' : 'default',
+          transformOrigin: tOrigin,
+          animation: isGotcha ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : bustPopActive ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : isBusted ? undefined : unoTagActive ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : isPunished ? 'penalty-pop 700ms cubic-bezier(0.34,1.56,0.64,1) both' : undefined,
+        }}
+      >
+        {displayTag}
+      </div>
     </div>
   );
 }

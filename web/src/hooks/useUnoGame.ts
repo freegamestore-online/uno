@@ -41,6 +41,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   const [actionTag, setActionTag] = useState<{ seat: number; text: string; type: string; color?: CardColor } | null>(null);
   const [cpuChallengeDecided, setCpuChallengeDecided] = useState(false);
   const [cpuChallengeOopsKey, setCpuChallengeOopsKey] = useState(0);
+  const [wild4Strike, setWild4Strike] = useState<number | null>(null);
   const cpuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -197,10 +198,10 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
 
     const { type, target, nextPlayer, color } = pa;
 
-    // Wild4: trigger fires at attacker's seat (turn stays there until challenge is resolved)
+    // Wild4: trigger fires at victim's seat (turn moves there so challenge dialog / CPU decision fires)
     if (type === 'wild4') {
       const { attacker, prevColor } = pa;
-      if (attacker == null || activeSeat !== attacker) return () => {};
+      if (activeSeat !== target) return () => {};
       // Human victim: GameBoard shows ChallengeUI instead of auto-resolving
       if (target === 0) return () => {};
       // CPU victim: decide whether to challenge based on difficulty
@@ -262,25 +263,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
           lockBoard(1150);
           setState(prev => { if (!prev.pendingAction) return prev; return makeExt({ ...prev, currentPlayer: prev.pendingAction.nextPlayer, pendingAction: null }); });
         } else {
-          // Accept draw 4
-          setActionTag({ seat: target, text: '😭 draw 4 cards', type: 'wild4' });
-          await sleep(600);
-          if (cancelled) return;
-          const drawDone = watch.watchDraw(target);
-          setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, target, 4)); });
-          await drawDone;
-          await sleep(600);
-          if (cancelled) return;
-          setActionTag(null);
-          await sleep(0);
-          if (cancelled) return;
-          lockBoard(1150);
-          setState(prev => {
-            if (!prev.pendingAction) return prev;
-            const n = prev.players.length;
-            const next = ((prev.pendingAction.target + prev.direction) % n + n) % n;
-            return makeExt({ ...prev, currentPlayer: next, pendingAction: null });
-          });
+          acceptDraw4(target);
         }
       })();
       return () => { cancelled = true; };
@@ -438,20 +421,20 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentPlayer, state.phase, isLocked, activeSeat, state.pendingAction]);
 
-  const humanAcceptDraw4 = useCallback(() => {
+  const acceptDraw4 = useCallback((targetSeat: number) => {
     const pa = state.pendingAction;
-    if (!pa || pa.type !== 'wild4' || pa.target !== 0) return;
+    if (!pa || pa.type !== 'wild4' || pa.target !== targetSeat) return;
     const { nextPlayer } = pa;
     const watch = animWatchRef?.current ?? noopWatch;
-    lockBoard(7000);
+    lockBoard(5000);
     (async () => {
-      // Animate turn line from attacker to human, then draw
-      setState(prev => { if (!prev.pendingAction) return prev; return { ...prev, currentPlayer: 0 }; });
-      await sleep(1150);
-      setActionTag({ seat: 0, text: '😭 draw 4 cards', type: 'wild4' });
+      setWild4Strike(targetSeat);
+      await sleep(700);
+      setWild4Strike(null);
+      setActionTag({ seat: targetSeat, text: '😭 draw 4 cards', type: 'wild4' });
       await sleep(600);
-      const drawDone = watch.watchDraw(0);
-      setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, 0, 4)); });
+      const drawDone = watch.watchDraw(targetSeat);
+      setState(prev => { if (!prev.pendingAction) return prev; return makeExt(drawCards(prev, targetSeat, 4)); });
       await drawDone;
       await sleep(600);
       setActionTag(null);
@@ -489,9 +472,6 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
       } else {
         lockBoard(7000);
         await sleep(1400);
-        // Animate turn line to human first, then draw
-        setState(prev => { if (!prev.pendingAction) return prev; return { ...prev, currentPlayer: 0 }; });
-        await sleep(1150);
         setActionTag({ seat: 0, text: '🤡 draw 6 cards', type: 'wild4' });
         await sleep(600);
         const drawDone = watch.watchDraw(0);
@@ -518,5 +498,16 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockBoardManual]);
 
-  return { state, isLocked, actionTag, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, humanAcceptDraw4, humanChallenge, bustDraw, restart };
+  const debugAddCard = useCallback((value: 'wild4' | 'wild', seats: number | number[] = 0) => {
+    const seatArr = Array.isArray(seats) ? seats : [seats];
+    setState(prev => {
+      const players = prev.players.map((p, i) =>
+        !seatArr.includes(i) ? p : { ...p, hand: [...p.hand, { id: `dbg-${value}-${i}-${Date.now()}`, color: 'wild' as CardColor, value }] }
+      );
+      return { ...prev, players };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return { state, isLocked, actionTag, wild4Strike, cpuChallengeDecided, cpuChallengeOopsKey, humanPlay, humanPickColor, humanDraw, humanPlayDrawn, humanKeepDrawn, acceptDraw4, humanChallenge, bustDraw, restart, debugAddCard };
 }

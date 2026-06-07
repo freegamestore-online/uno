@@ -10,6 +10,7 @@ export function DealLightningSVG({ deskW, deskH, dealLightningOffset }: Props) {
   const ix = 24, iy = 24, ir = 8;
   const _dl = `H ${deskW-ix-ir} A ${ir},${ir} 0 0,1 ${deskW-ix},${iy+ir} V ${deskH-iy-ir} A ${ir},${ir} 0 0,1 ${deskW-ix-ir},${deskH-iy} H ${ix+ir} A ${ir},${ir} 0 0,1 ${ix},${deskH-iy-ir} V ${iy+ir} A ${ir},${ir} 0 0,1 ${ix+ir},${iy} H ${deskW/2}`;
   const path = `M ${deskW/2},${iy} ${_dl} ${_dl} ${_dl} ${_dl} Z`;
+
   const { offset, length, phase, dur } = dealLightningOffset;
 
   return (
@@ -20,9 +21,14 @@ export function DealLightningSVG({ deskW, deskH, dealLightningOffset }: Props) {
       style={{ overflow: 'visible', zIndex: Z.UI_CHROME }}
     >
       <defs>
-        <filter id="deal-lightning-noise" x="-20%" y="-20%" width="140%" height="140%">
+        <filter id="deal-lightning-noise" x="-30%" y="-30%" width="160%" height="160%">
           <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise" seed="42" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="24" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feGaussianBlur in="displaced" stdDeviation="6" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="displaced" />
+          </feMerge>
         </filter>
       </defs>
       <path
@@ -40,7 +46,7 @@ export function DealLightningSVG({ deskW, deskH, dealLightningOffset }: Props) {
             phase === 2 ? `stroke-dashoffset ${dur}ms linear` :
             phase === 3 ? `stroke-dasharray ${dur}ms linear` :
             'none',
-          filter: 'url(#deal-lightning-noise) drop-shadow(0 0 10px white)',
+          filter: 'url(#deal-lightning-noise)',
           animation: 'wild4-flicker 0.15s linear infinite',
         }}
       />

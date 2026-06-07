@@ -37,7 +37,7 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
         '--play-lift-sm': playLiftSm,
         animation: isFromPicker ? 'picker-to-discard 700ms ease-in-out both' : isDrag ? `card-play-direct ${duration}ms both` : `card-play-arc ${duration}ms linear both`,
         zIndex: Z.FLY_AIR,
-        perspective: (isCPU || isFromPicker) ? '600px' : undefined,
+        perspective: isCPU ? '600px' : undefined,
       } as CSSProperties}
     >
       {isCPU ? (
@@ -50,37 +50,31 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
           </div>
         </div>
       ) : isFromPicker ? (
-        <div style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out reverse both' }}>
-          <div className="[backface-visibility:hidden]">
-            <Card card={card} size="md" />
-          </div>
-          <div
-            className="absolute top-0 left-0 rounded-lg border-[3px] border-white overflow-hidden bg-[var(--uno-ink)]"
-            style={{ width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
-          >
-            <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
-              <defs>
-                <clipPath id="picker-oval-clip-play">
-                  <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
-                </clipPath>
-                <path id="arc-top-play" d="M -46,0 A 46 72.7 0 0 1 46 0" transform="rotate(22)" />
-                <path id="arc-bot-play" d="M -46,0 A 46 72.7 0 0 0 46 0" transform="rotate(22)" />
-              </defs>
-              <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">
-                <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="var(--uno-blue)" />
-                <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="var(--uno-green)" />
-                <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="var(--uno-yellow)" />
-                <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="var(--uno-red)" />
-              </g>
-              <g transform="translate(50, 72.5)">
-                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
-                  <textPath href="#arc-top-play" startOffset="24%" textAnchor="middle">CHOOSE</textPath>
-                </text>
-                <text fill="white" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 900, fontSize: '7.5px' }} letterSpacing="0.8" dominantBaseline="middle">
-                  <textPath href="#arc-bot-play" startOffset="76%" textAnchor="middle">COLOR</textPath>
-                </text>
-              </g>
-            </svg>
+        <div style={{ position: 'relative', width: 'var(--card-md-w)', aspectRatio: '1 / 1.45', perspective: '600px' }}>
+          {/* 3D flip: picker face → card face, matches full 700ms fly duration */}
+          <div style={{ position: 'absolute', inset: 0, transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out both' }}>
+            {/* Front: picker SVG — visible initially, opacity cut at 90° midpoint */}
+            <div className="absolute inset-0 rounded-lg border-[3px] border-white overflow-hidden bg-[var(--uno-ink)] [backface-visibility:hidden]"
+              style={{ animation: 'picker-front-hide 700ms linear forwards' }}
+            >
+              <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
+                <defs>
+                  <clipPath id="picker-oval-clip-play">
+                    <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
+                  </clipPath>
+                </defs>
+                <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">
+                  <polygon points="0,0 74.92,-185.44 200,-200 200,0" fill="var(--uno-blue)" />
+                  <polygon points="0,0 200,0 200,200 -74.92,185.44" fill="var(--uno-green)" />
+                  <polygon points="0,0 -74.92,185.44 -200,200 -200,0" fill="var(--uno-yellow)" />
+                  <polygon points="0,0 -200,0 -200,-200 74.92,-185.44" fill="var(--uno-red)" />
+                </g>
+              </svg>
+            </div>
+            {/* Back: card face — pre-rotated 180°, visible after flip */}
+            <div className="absolute inset-0 [backface-visibility:hidden]" style={{ transform: 'rotateY(180deg)' }}>
+              <Card card={card} size="md" />
+            </div>
           </div>
         </div>
       ) : (

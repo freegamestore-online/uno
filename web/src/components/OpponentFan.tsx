@@ -5,9 +5,10 @@ import type { Player } from '../lib/uno';
 interface Props {
   opp: Player;
   hiddenCardIds: Map<string, number>;
+  revealAll?: boolean;
 }
 
-export function OpponentFan({ opp, hiddenCardIds }: Props) {
+export function OpponentFan({ opp, hiddenCardIds, revealAll }: Props) {
   const pos = opp.position ?? 'top';
   const total = opp.hand.length;
   const fanCenter = (total - 1) / 2;
@@ -59,7 +60,7 @@ export function OpponentFan({ opp, hiddenCardIds }: Props) {
               transition: 'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
               animation: isHidden ? `snap-visible 700ms ${snapDelay}ms both` : undefined,
             }}>
-              <Card card={card} faceDown size="sm" />
+              <Card card={card} faceDown={!revealAll} size="sm" />
             </div>
           );
         })}

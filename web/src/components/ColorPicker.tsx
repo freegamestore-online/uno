@@ -25,39 +25,56 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
   const startPos = useRef({ tx, ty, trot, isDrag, startScale });
 
   return (
-    <div className="absolute inset-0 pointer-events-auto overflow-hidden" style={{ zIndex: Z.MODAL }}>
+    <div className="absolute inset-0 pointer-events-auto" style={{ zIndex: Z.MODAL }}>
+      {/*
+        Scale-down trick: container is 3.5× card size so Safari rasterizes the SVG at its final
+        display resolution. picker-fly-to-center starts at scale(1/3.5) → scale(1).
+        perspective is on the direct parent of the preserve-3d flip wrapper (no filter on any ancestor).
+      */}
       <div
         className="absolute"
         style={{
-          left: 'calc(50% - (var(--card-md-w) / 2) - 10px)',
+          left: '50%',
           top: '50%',
+          width: 'calc(var(--card-md-w) * 3.5)',
+          aspectRatio: '1 / 1.45',
           '--tx': startPos.current.tx,
           '--ty': startPos.current.ty,
           '--trot': startPos.current.trot,
           '--fly-lift': startPos.current.isDrag ? '0px' : undefined,
           '--fly-lift-sm': startPos.current.isDrag ? '0px' : undefined,
           '--fly-start-scale': startPos.current.startScale != null ? String(startPos.current.startScale) : undefined,
-          animation: 'fly-to-center 700ms linear forwards',
+          animation: 'picker-fly-to-center 700ms linear forwards',
           transformOrigin: 'center center',
           perspective: '600px',
         } as React.CSSProperties}
       >
+        {/* 3D flip wrapper */}
         <div
-          style={{
-            position: 'relative',
-            width: 'var(--card-md-w)',
-            aspectRatio: '1 / 1.45',
-            transformStyle: 'preserve-3d',
-            animation: 'card-flip 700ms ease-in-out forwards',
-          }}
+          className="absolute inset-0"
+          style={{ transformStyle: 'preserve-3d', animation: 'card-flip 700ms ease-in-out forwards' }}
         >
-          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
-            <Card card={card} size="md" />
+          {/* Front face: card scaled 3.5× to fill container.
+              picker-front-hide cuts opacity at the 90° midpoint — reliable symbol hide
+              even if Safari drops backface-visibility due to compositing. */}
+          <div
+            className="absolute inset-0 [backface-visibility:hidden]"
+            style={{ animation: 'picker-front-hide 700ms linear forwards' }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%) scale(3.5)',
+              transformOrigin: 'center center',
+            }}>
+              <Card card={card} size="md" />
+            </div>
           </div>
 
+          {/* Back face: SVG fills the 3.5× container natively — always sharp */}
           <div
-            className="absolute inset-0 rounded-lg border-[3px] border-white overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.6)] pointer-events-auto bg-[var(--uno-ink)]"
-            style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+            className="absolute inset-0 rounded-[1.75rem] border-[10.5px] border-white overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.6)] pointer-events-auto bg-[var(--uno-ink)] [backface-visibility:hidden]"
+            style={{ transform: 'rotateY(180deg)' }}
           >
             <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
               <defs>

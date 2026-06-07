@@ -206,7 +206,7 @@ export function playCard(state: GameState, cardId: string, chosenColor?: CardCol
       const victim = advance(playerIndex);
       const prevColor = effectiveColor(state.discard[state.discard.length - 1] as UnoCard);
       s.pendingAction = { type: 'wild4', target: victim, nextPlayer: advance(playerIndex, true), attacker: playerIndex, prevColor };
-      s.currentPlayer = playerIndex; // Stay on attacker — challenge decision happens at their seat
+      s.currentPlayer = victim;
       break;
     }
     case 'wild': {

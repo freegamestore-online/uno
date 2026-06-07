@@ -54,9 +54,14 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
       style={{ overflow: 'visible', opacity: dirOpacity, transition: 'opacity 350ms ease' }}
     >
       <defs>
-        <filter id="lightning-noise" x="-20%" y="-20%" width="140%" height="140%">
+        <filter id="lightning-noise" x="-30%" y="-30%" width="160%" height="160%">
           <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" result="noise" seed="42" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="24" xChannelSelector="R" yChannelSelector="G" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="24" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feGaussianBlur in="displaced" stdDeviation="8" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="displaced" />
+          </feMerge>
         </filter>
       </defs>
       {[0, -dur / 2].map((begin, i) => (
@@ -93,7 +98,7 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
           strokeWidth="3"
           style={{
             transition,
-            filter: 'url(#lightning-noise) drop-shadow(0 0 10px currentColor)',
+            filter: 'url(#lightning-noise)',
             animation: 'wild4-color-cycle 0.5s steps(1) infinite, wild4-flicker 0.15s linear infinite',
           }}
         />
@@ -104,7 +109,7 @@ export function TurnLineSVG({ desk, displayedDir, dirOpacity, color, turnLine, w
           strokeWidth="3"
           style={{
             transition,
-            filter: `url(#lightning-noise) drop-shadow(0 0 10px ${wildColor})`,
+            filter: 'url(#lightning-noise)',
             animation: 'wild4-flicker 0.15s linear infinite',
           }}
         />
