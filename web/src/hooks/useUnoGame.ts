@@ -201,7 +201,7 @@ export function useUnoGame(opponentConfigs: OpponentConfig[], activeSeat?: numbe
     // Wild4: trigger fires at victim's seat (turn moves there so challenge dialog / CPU decision fires)
     if (type === 'wild4') {
       const { attacker, prevColor } = pa;
-      if (activeSeat !== target) return () => {};
+      if (attacker == null || activeSeat !== target) return () => {};
       // Human victim: GameBoard shows ChallengeUI instead of auto-resolving
       if (target === 0) return () => {};
       // CPU victim: decide whether to challenge based on difficulty
