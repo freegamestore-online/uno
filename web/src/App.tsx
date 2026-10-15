@@ -201,7 +201,7 @@ export default function App() {
 
   const topbar = screen === 'playing' ? (
     <GameTopbar
-      title="UNO"
+      title="Crazy Eights"
       stats={[
         { label: 'Cards', value: gameInfo.cards },
         { label: 'Turn', value: gameInfo.turn, accent: gameInfo.isMyTurn },
@@ -209,7 +209,7 @@ export default function App() {
       actions={<GameButton size="sm" variant="ghost" onClick={() => setScreen('menu')}>✕</GameButton>}
     />
   ) : (
-    <GameTopbar title="UNO" actions={
+    <GameTopbar title="Crazy Eights" actions={
       screen === 'setup'
         ? <GameButton size="sm" variant="ghost" onClick={() => transitionTo('menu')}>← Back</GameButton>
         : undefined
@@ -350,15 +350,13 @@ export default function App() {
                 onMouseEnter={() => { setLogoHovered(true); setGlazeKey(k => k + 1); }}
                 onMouseLeave={() => setLogoHovered(false)}
                 className="inline-flex items-center justify-center rounded-[50%] overflow-hidden relative cursor-default"
-                style={{ background: 'linear-gradient(160deg, var(--uno-red-a) 0%, var(--uno-red-b) 100%)', width: 148, height: 100, boxShadow: '0 8px 32px rgba(185,28,28,0.5), inset 0 2px 0 rgba(255,255,255,0.15)', transform: logoHovered ? 'rotate(-10deg) scale(1.12)' : 'rotate(-10deg)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}
+                style={{ background: 'linear-gradient(160deg, var(--accent) 0%, #1e40af 100%)', width: 148, height: 100, borderRadius: 14, boxShadow: '0 8px 32px rgba(37,99,235,0.45), inset 0 2px 0 rgba(255,255,255,0.15)', transform: logoHovered ? 'rotate(-10deg) scale(1.12)' : 'rotate(-10deg)', transition: 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}
               >
                 {glazeKey > 0 && (
                   <div key={glazeKey} className="absolute pointer-events-none top-[-20%] left-0 w-[72px] h-[140%] bg-[linear-gradient(to_right,transparent_0%,rgba(255,255,255,0.55)_50%,transparent_100%)] [transform:skewX(-18deg)] [animation:logo-glaze_0.55s_ease_forwards]" />
                 )}
                 <svg viewBox="0 0 120 56" width="120" height="56" className="block overflow-visible">
-                  <text x="62" y="47" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="black" letterSpacing="-1">UNO</text>
-                  <text x="61" y="46" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="black" letterSpacing="-1">UNO</text>
-                  <text x="59" y="44" textAnchor="middle" className="font-serif font-extrabold text-[54px]" fill="var(--uno-gold)" stroke="black" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+                  <text x="60" y="50" textAnchor="middle" className="font-serif font-extrabold text-[58px]" fill="white">8</text>
                 </svg>
               </div>
               <p className="text-white/45 text-[13px] font-sans mt-[10px] mb-0">Classic card game</p>

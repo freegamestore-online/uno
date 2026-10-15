@@ -30,7 +30,7 @@ export function NameTag({ player: p, idx, activeSeat, initCardRevealed, actionTa
 
   const isActive = initCardRevealed && activeSeat === idx;
   const isPunished = actionTag?.seat === idx;
-  const displayTag = isGotcha ? 'GOTCHA!' : bustPopActive ? '🤯 BUSTED' : unoTagActive ? 'UNO!' : isBusted ? 'BUST' : isPunished ? actionTag!.text : p.name;
+  const displayTag = isGotcha ? 'GOTCHA!' : bustPopActive ? '🤯 BUSTED' : unoTagActive ? 'LAST!' : isBusted ? 'BUST' : isPunished ? actionTag!.text : p.name;
   const tOrigin =
     p.position === 'bottom' ? 'bottom center' : p.position === 'top' ? 'top center' :
     p.position === 'left'   ? 'left center'   : p.position === 'right' ? 'right center' : 'center';

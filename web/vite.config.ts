@@ -41,9 +41,9 @@ export default defineConfig({
       // field passes through to the emitted manifest.webmanifest; browsers
       // ignore unknown members.
       manifest: {
-        name: "uno",
-        short_name: "uno",
-        description: "uno — free forever",
+        name: "Crazy Eights",
+        short_name: "Crazy Eights",
+        description: "Crazy Eights — free forever",
         start_url: "/",
         display: "standalone",
         background_color: "#0f0f0f",

@@ -60,7 +60,7 @@ export function PlayingCardAnim({ startX, startY, startRot, startScale = 1, card
               <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
                 <defs>
                   <clipPath id="picker-oval-clip-play">
-                    <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
+                    <rect x="-40" y="-66.7" width="80" height="133.4" rx="10" />
                   </clipPath>
                 </defs>
                 <g clipPath="url(#picker-oval-clip-play)" transform="translate(50, 72.5)">

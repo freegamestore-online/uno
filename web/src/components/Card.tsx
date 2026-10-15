@@ -71,7 +71,7 @@ function WildIcon3D({ clipId }: { clipId: string }) {
     <g transform={`scale(${scale})`}>
       <defs>
         <clipPath id={clipId}>
-          <ellipse cx="0" cy="0" rx={rx} ry={ry} transform="rotate(22)" />
+          <rect x={-rx} y={-ry} width={rx * 2} height={ry * 2} rx="6" />
         </clipPath>
       </defs>
       <g clipPath={`url(#${clipId})`}>
@@ -141,18 +141,16 @@ export function Card({ card, faceDown, selected, onClick, size = 'md', thick }: 
         style={{ width: cardW, aspectRatio: '1 / 1.45', boxShadow: '0 0 0 1px rgba(0,0,0,0.25), 0 2px 4px rgba(0,0,0,0.2)' }}
       >
         <div
-          className="rounded-[50%] flex items-center justify-center shrink-0 -rotate-[15deg]"
+          className="rounded-[10px] flex items-center justify-center shrink-0"
           style={{
-            background: 'linear-gradient(160deg, var(--uno-red-a) 0%, var(--uno-red-b) 100%)',
-            width: '92%',
-            height: '38%',
-            boxShadow: '0 2px 8px rgba(185,28,28,0.6)',
+            background: 'linear-gradient(160deg, var(--accent) 0%, #1e40af 100%)',
+            width: '88%',
+            height: '86%',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.5)',
           }}
         >
-          <svg viewBox="0 0 120 56" width="100%" height="100%" className="block overflow-visible">
-            <text x="62" y="47" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="black" letterSpacing="-1">UNO</text>
-            <text x="61" y="46" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="black" letterSpacing="-1">UNO</text>
-            <text x="59" y="44" textAnchor="middle" style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 54 }} fill="var(--uno-yellow)" stroke="black" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke fill" letterSpacing="-1">UNO</text>
+          <svg viewBox="0 0 120 80" width="100%" height="100%" className="block overflow-visible">
+            <text x="60" y="62" textAnchor="middle" style={{ fontFamily: 'Fraunces, serif', fontWeight: 800, fontSize: 70 }} fill="white">8</text>
           </svg>
         </div>
       </div>
@@ -177,17 +175,17 @@ export function Card({ card, faceDown, selected, onClick, size = 'md', thick }: 
     >
       {/* Center Oval */}
       {card.value === 'wild4' ? (
-        <div className="absolute w-[80%] h-[92%] rounded-[50%] bg-white rotate-[22deg]" />
+        <div className="absolute w-[80%] h-[92%] rounded-[16%] bg-white" />
       ) : card.color === 'wild' && card.chosenColor ? (
-        <div className="absolute w-[80%] h-[92%] rounded-[50%] rotate-[22deg]" style={{ background: COLOR_BG[card.chosenColor] }} />
+        <div className="absolute w-[80%] h-[92%] rounded-[16%]" style={{ background: COLOR_BG[card.chosenColor] }} />
 
       ) : card.color === 'wild' ? (
         <div
-          className="absolute w-[80%] h-[92%] rounded-[50%] rotate-[22deg]"
+          className="absolute w-[80%] h-[92%] rounded-[16%]"
           style={{ background: 'conic-gradient(var(--uno-blue) 0deg 68deg, var(--uno-green) 68deg 180deg, var(--uno-yellow) 180deg 248deg, var(--uno-red) 248deg 360deg)' }}
         />
       ) : (
-        <div className="absolute w-[80%] h-[92%] rounded-[50%] bg-white/20 rotate-[22deg]" />
+        <div className="absolute w-[80%] h-[92%] rounded-[16%] bg-white/20" />
       )}
 
       {/* Native SVG overlay for all text and icons */}

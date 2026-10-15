@@ -79,7 +79,7 @@ export function ColorPicker({ onPick, tx, ty, trot, card, isDrag, startScale }: 
             <svg viewBox="0 0 100 145" className="absolute inset-0 w-full h-full">
               <defs>
                 <clipPath id="picker-oval-clip">
-                  <ellipse cx="0" cy="0" rx="40" ry="66.7" transform="rotate(22)" />
+                  <rect x="-40" y="-66.7" width="80" height="133.4" rx="10" />
                 </clipPath>
                 <path id="arc-top" d="M -46,0 A 46 72.7 0 0 1 46 0" transform="rotate(22)" />
                 <path id="arc-bot" d="M -46,0 A 46 72.7 0 0 0 46 0" transform="rotate(22)" />

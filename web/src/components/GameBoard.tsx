@@ -473,7 +473,7 @@ const [challengeDismissed, setChallengeDismissed] = useState(false);
             style={{ bottom: 'clamp(10px, 2.5vh, 20px)', right: 'clamp(10px, 2.5vw, 18px)', zIndex: Z.DECISION, padding: '6px 18px', fontSize: 'clamp(13px, 3.5vw, 15px)', letterSpacing: '0.04em', borderColor: 'var(--uno-pink)', color: 'var(--uno-pink)', opacity: canCallUno ? 1 : 0.4, cursor: canCallUno ? 'pointer' : 'default', transform: unoFlash ? 'scale(1.15)' : 'scale(1)', transition: 'transform 150ms ease, opacity 300ms ease', boxShadow: unoFlash ? '0 0 12px rgba(244,114,182,0.6)' : 'none' }}
             onClick={() => { setUnoCalled(true); recentUnoCalledRef.current = true; setUnoFlash(true); setUnoTagActive(true); setTimeout(() => setUnoFlash(false), 600); setTimeout(() => setUnoTagActive(false), 1400); if (inBustWindow) setBustedSeats(s => { const n = new Set(s); n.delete(0); return n; }); }}
           >
-            Call UNO!
+            Last card!
           </button>
         );
       })()}
